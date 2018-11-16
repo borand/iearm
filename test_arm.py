@@ -2,13 +2,13 @@ import maestro
 from time import sleep
 
 m = maestro.Controller('/dev/ttyACM0')
-
-m.setSpeed(0, 60)
-m.setSpeed(1, 60)
-m.setSpeed(2, 60)
+print(m.getPosition(0))
+m.setSpeed(0, 70)
+m.setSpeed(1, 70)
+m.setSpeed(2, 70)
 m.setSpeed(3, 60)
 m.setSpeed(4, 60)
-
+#
 trajectory = [
     [[1500, 1692, 1773, 1228, 904],  2],
     [[1477, 1185, 864,  1228, 904],  1],
@@ -19,7 +19,36 @@ trajectory = [
     [[802,  1692, 1775, 1228, 904],  1],
     [[1500, 1692, 1773, 1228, 904],  1]
 ]
-for pos in trajectory:
-    m.set_target_vector(pos[0], pos[1])
+trajectory = [
+    [[1500, 1692, 1773, 1228, 904],  0.5],
+    [[1477, 1185, 864,  1228, 904],  0.5],
+    [[1477, 1185, 864,  1228, 1671], 0.5],
+    [[1477, 2100, 864,  1228, 1671], 0.5],
+    [[802,  826,  1775, 1228, 1671], 0.8],
+    [[802,  826,  1775, 1228, 904],  0.5],
+    [[802,  1692, 1775, 1228, 904],  0.5],
+    [[1500, 1692, 1773, 1228, 904],  0.5]
+]
 
+trajectory2 = [
+    [[1500, 1150, 1275, 1000],  0.5],
+    [[2300, 1850, 1275, 1000], 0.5],
+    [[2300, 1950, 1275, 1000], 0.5],
+    [[2300, 1950, 1275, 1800], 0.5],
+    [[2300, 1150, 1975, 1800], 0.5],
+    [[1100, 1150, 1975, 1800], 0.5],
+    [[950, 1950, 1175, 1800], 0.5],
+    [[950, 1950, 1175, 1000], 0.5],
+    [[1500, 1150, 1275, 1000],  0.5],
+    ]
+m.run_trajectory(trajectory)
+
+# for pos in trajectory:
+#     m.set_target_vector(pos[0], pos[1])
+#     print(pos[0])
+#     while m.getMovingState():
+#         print(m.get_all_positions())
+#
+# m.set_target_vector([1900, 1692, 1773, 1228, 900],0)
+# print(m.getPosition(0))
 m.close()

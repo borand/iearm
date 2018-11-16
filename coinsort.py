@@ -160,7 +160,7 @@ def run():
     state = 0
     WAIT_FOR_COIN = 0
     GET_COIN_VALUE = 1
-    new_coin_threshold = 150
+    new_coin_threshold = 10
 
     while (1):
         [cnts, image] = get_contours()

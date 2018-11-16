@@ -1,8 +1,20 @@
 import serial
 import time
 from sys import version_info
+import os
 
 PY2 = version_info[0] == 2  # Running Python 2.x?
+
+trajectory = [
+    [[1500, 1692, 1773, 1228, 904], 2],
+    [[1477, 1185, 864, 1228, 904], 1],
+    [[1477, 1185, 864, 1228, 1671], 1],
+    [[1477, 2100, 864, 1228, 1671], 1],
+    [[802, 826, 1775, 1228, 1671], 1],
+    [[802, 826, 1775, 1228, 904], 1],
+    [[802, 1692, 1775, 1228, 904], 1],
+    [[1500, 1692, 1773, 1228, 904], 1]
+]
 
 
 #
@@ -18,6 +30,11 @@ PY2 = version_info[0] == 2  # Running Python 2.x?
 # These functions provide access to many of the Maestro's capabilities using the
 # Pololu serial protocol
 #
+
+str_to_byte = {
+
+}
+
 class Controller:
     # When connected via USB, the Maestro creates two virtual serial ports
     # /dev/ttyACM0 for commands and /dev/ttyACM1 for communications.
@@ -31,10 +48,16 @@ class Controller:
     # ports, or you are using a Windows OS, you can provide the tty port.  For
     # example, '/dev/ttyACM2' or for Windows, something like 'COM3'.
     def __init__(self, tty_str='/dev/ttyACM0', device=0x0c):
-        # Open the command port
-        self.usb = serial.Serial(tty_str)
+
+        self.tty_str = tty_str
+        self.tty_port_exists = False
+        self.tty_port_connection_established = False
         # Command lead-in and device number are sent for each Pololu serial command.
+        self.timeout = 1
+        self.last_cmd_send = ''
         self.pololu_cmd = chr(0xaa) + chr(device)
+        self.last_exception = ''
+
         # Track target position for each servo. The function isMoving() will
         # use the Target vs Current servo position to determine if movement is
         # occuring.  Upto 24 servos on a Maestro, (0-23). target_positions start at 0.
@@ -43,17 +66,43 @@ class Controller:
         self.Mins = [0] * 24
         self.Maxs = [0] * 24
 
+        self.establish_connection()
+
+    def establish_connection(self):
+        try:
+            self.usb = serial.Serial(self.tty_str, timeout=1)
+            self.tty_port_exists = True
+            self.tty_port_connection_established = True
+        except Exception as e:
+            self.last_exception = e
+
     # Cleanup by closing USB serial port
     def close(self):
         self.usb.close()
 
     # Send a Pololu command out the serial port
     def send(self, cmd):
-        cmd_str = self.pololu_cmd + cmd
-        if PY2:
-            self.usb.write(cmd_str)
+        self.last_cmd_send = cmd
+        if self.establish_connection:
+            cmd_str = self.pololu_cmd + cmd
+            if PY2:
+                out = self.usb.write(cmd_str)
+            else:
+                out = self.usb.write(bytes(cmd_str, 'latin-1'))
         else:
-            self.usb.write(bytes(cmd_str, 'latin-1'))
+            out = -1
+        return out
+
+    def read(self):
+
+        if self.usb.is_open:
+
+            start_time = time.time()
+            while time.time() - start_time < self.timeout:
+                if self.usb.in_waiting == 1:
+                    return ord(self.usb.read())
+        else:
+            return -1
 
     # Set channels min and max value range.  Use this as a safety to protect
     # from accidentally moving outside known safe parameters. A setting of 0
@@ -82,6 +131,7 @@ class Controller:
     # Typcially valid servo range is 3000 to 9000 quarter-microseconds
     # If channel is configured for digital output, values < 6000 = Low ouput
     def set_target(self, chan: object, target: object) -> object:
+        self.target_positions[chan] = target
         target = round(target * 4);
         # if Min is defined and Target is below, force to Min
         if self.Mins[chan] > 0 and target < self.Mins[chan]:
@@ -95,14 +145,21 @@ class Controller:
         cmd = chr(0x04) + chr(chan) + chr(lsb) + chr(msb)
         self.send(cmd)
         # Record Target value
-        self.target_positions[chan] = target
+
 
     def set_target_vector(self, targets, sleep_time=0):
         for chan, pos in enumerate(targets):
             self.set_target(chan, pos)
         time.sleep(sleep_time)
+        to = time.time()
 
+        timeout = 5
+        while self.getMovingState(): #and time.time() - to < timeout:
+            pass
 
+    def run_trajectory(self, trajectory=trajectory):
+        for pos in trajectory:
+            self.set_target_vector(pos[0], pos[1])
 
     # Set speed of channel
     # Speed is measured as 0.25microseconds/10milliseconds
@@ -135,9 +192,22 @@ class Controller:
     def getPosition(self, chan):
         cmd = chr(0x10) + chr(chan)
         self.send(cmd)
-        lsb = ord(self.usb.read())
-        msb = ord(self.usb.read())
-        return (msb << 8) + lsb / 4
+        timeout = 1
+
+        start_time = time.time()
+        # your code
+
+        while time.time() - start_time < timeout:
+            if self.usb.in_waiting == 2:
+                lsb = ord(self.usb.read())
+                msb = ord(self.usb.read())
+                return ((msb << 8) + lsb) / 4
+        if time.time() - start_time > timeout:
+            print('read timed out')
+        return -1
+
+    def get_all_positions(self):
+        return [self.getPosition(x) in range(0, 5)]
 
     # Test to see if a servo has reached the set target position.  This only provides
     # useful results if the Speed parameter is set slower than the maximum speed of
@@ -148,20 +218,22 @@ class Controller:
     # moving to the target.
     def isMoving(self, chan):
         if self.target_positions[chan] > 0:
-            if self.getPosition(chan) != self.target_positions[chan]:
-                return True
-        return False
+            if abs(self.getPosition(chan) - self.target_positions[chan]) > 10:
+                return 1
+        return 0
 
     # Have all servo outputs reached their targets? This is useful only if Speed and/or
     # Acceleration have been set on one or more of the channels. Returns True or False.
     # Not available with Micro Maestro.
     def getMovingState(self):
-        cmd = chr(0x13)
-        self.send(cmd)
-        if self.usb.read() == chr(0):
-            return False
-        else:
-            return True
+        return sum([self.isMoving(x) for x in range(0, 5)])
+        # Does not work on maestro6
+        # cmd = chr(0x13)
+        # self.send(cmd)
+        # if self.read() == chr(0):
+        #     return False
+        # else:
+        #     return True
 
     # Run a Maestro Script subroutine in the currently active script. Scripts can
     # have multiple subroutines, which get numbered sequentially from 0 on up. Code your

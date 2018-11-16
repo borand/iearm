@@ -28,10 +28,36 @@ from tornado.options import define, options
 define("port", default=8888, help="run on the given port", type=int)
 
 import maestro
+import time
 
-sp = maestro.Controller()
+sp  = maestro.Controller()
+sp2 = maestro.Controller('/dev/ttyACM2')
 
 dev = {"light": 0}
+
+trajectory2 = [
+    [[1500, 1150, 1275, 1000],  0.5],
+    [[2300, 1850, 1275, 1000], 0.5],
+    [[2300, 1950, 1275, 1000], 0.5],
+    [[2300, 1950, 1275, 1800], 0.5],
+    [[2300, 1150, 1975, 1800], 0.5],
+    [[1100, 1150, 1975, 1800], 0.5],
+    [[950, 1950, 1175, 1800], 0.5],
+    [[950, 1950, 1175, 1000], 0.5],
+    [[1500, 1150, 1275, 1000],  0.5],
+    ]
+
+trajectory = [
+    [[1500, 1692, 1773, 1228, 904], 2],
+    [[1477, 1185, 864, 1228, 904], 1],
+    [[1477, 1185, 864, 1228, 1671], 1],
+    [[1477, 2100, 864, 1228, 1671], 1],
+    [[802, 826, 1675, 1228, 1671], 1],
+    [[802, 826, 1675, 1228, 904], 1],
+    [[802, 1692, 1675, 1228, 904], 1],
+    [[1500, 1692, 1773, 1228, 904], 1]
+]
+
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -70,6 +96,33 @@ class ApiHandler(tornado.web.RequestHandler):
 
         self.write('{"is_active": "true"}')
 
+class ApiSetPos(tornado.web.RequestHandler):
+
+    def get(self, chan, pos, *arg):
+        print("ApiSetPos get chan{}-{}, pos{}-{}".format(chan, type(chan), pos, type(pos)))
+
+        start_time = time.time()
+        try:
+            sp.set_target(int(chan), int(pos))
+            success = 1
+        except:
+            success = 0
+        end_time = time.time()
+        out = {"cmd": chan, "pos": pos, "cmd": "set_target", "success" : success, "etime": start_time - end_time}
+        self.write(json.dumps(out))
+
+class ApiRunTrajectory(tornado.web.RequestHandler):
+
+    def get(self, *arg):
+        # print("ApiSetPos get chan{}-{}, pos{}-{}".format(arg))
+        starttime = time.time()
+
+        sp.run_trajectory(trajectory)
+        time.sleep(1);
+        sp2.run_trajectory(trajectory2)
+
+        endtime = time.time()
+        self.write('cmd: {}, time: {}'.format("run_trajectory", endtime-starttime))
 
 def main():
     tornado.options.parse_command_line()
@@ -82,6 +135,8 @@ def main():
         (r"/idn", IdnHandler),
         (r"/cmd/(.*)", CmdHandler),
         (r"/api/", ApiHandler),
+        (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
+        (r"/api/run_trajectory", ApiRunTrajectory),
     ], debug=True, autoreload=True)
 
     http_server = tornado.httpserver.HTTPServer(application)
