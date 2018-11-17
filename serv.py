@@ -30,8 +30,8 @@ define("port", default=8888, help="run on the given port", type=int)
 import maestro
 import time
 
-sp  = maestro.Controller()
-sp2 = maestro.Controller('/dev/ttyACM2')
+# sp  = maestro.Controller()
+# sp2 = maestro.Controller('/dev/ttyACM2')
 
 dev = {"light": 0}
 
@@ -58,10 +58,13 @@ trajectory = [
     [[1500, 1692, 1773, 1228, 904], 1]
 ]
 
+busy = False
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.write("Hello, world")
+        # self.write("Hello, world")
+        items = ["Item 1", "Item 2", "Item 3"]
+        self.render("main.html", title="My title", items=items)
 
 class IdnHandler(tornado.web.RequestHandler):
     def get(self):
@@ -70,7 +73,13 @@ class IdnHandler(tornado.web.RequestHandler):
 
 class CmdHandler(tornado.web.RequestHandler):
     def get(self, cmd):
-        out = "command not implementd"
+        if not busy:
+            out = "command not implementd"
+            busy = True
+            time.sleep(10)
+            busy = False
+        else:
+            out = "busy"
         self.write("{}".format(out))
 
 class ApiHandler(tornado.web.RequestHandler):
@@ -96,6 +105,37 @@ class ApiHandler(tornado.web.RequestHandler):
 
         self.write('{"is_active": "true"}')
 
+class ApiJsonHandler(tornado.web.RequestHandler):
+
+    def get(self, js, *arg):
+        print(js)
+        try:
+            out = json.loads(js)
+        except Exception as e:
+            out = e
+            print(out)
+            
+
+        self.write("json out ='{0}'".format(out))
+
+    def put(self, *arg, **kwargs):
+        print("put")
+        self.write('{"is_active": "false"}')
+
+    def post(self, *arg, **kwargs):
+        print("post ----------------------------------------------")
+        print(self.request)
+        body = self.request.body.decode("utf-8")
+        try:
+            out = json.loads(body)
+            dev[out["dev"]] = out["active"]
+        except:
+            out = 'could not decode'
+        print("body = {}, type = {}, json = {}".format(body, type(body), out))
+
+        self.write('{"is_active": "true"}')
+
+
 class ApiSetPos(tornado.web.RequestHandler):
 
     def get(self, chan, pos, *arg):
@@ -103,7 +143,7 @@ class ApiSetPos(tornado.web.RequestHandler):
 
         start_time = time.time()
         try:
-            sp.set_target(int(chan), int(pos))
+            #sp.set_target(int(chan), int(pos))
             success = 1
         except:
             success = 0
@@ -117,9 +157,9 @@ class ApiRunTrajectory(tornado.web.RequestHandler):
         # print("ApiSetPos get chan{}-{}, pos{}-{}".format(arg))
         starttime = time.time()
 
-        sp.run_trajectory(trajectory)
+        #sp.run_trajectory(trajectory)
         time.sleep(1);
-        sp2.run_trajectory(trajectory2)
+        #sp2.run_trajectory(trajectory2)
 
         endtime = time.time()
         self.write('cmd: {}, time: {}'.format("run_trajectory", endtime-starttime))
@@ -130,11 +170,13 @@ def main():
         'debug': True,
         # other stuff
     }
+   
     application = tornado.web.Application([
         (r"/", MainHandler),
         (r"/idn", IdnHandler),
         (r"/cmd/(.*)", CmdHandler),
         (r"/api/", ApiHandler),
+        (r"/api/json/(.*)", ApiJsonHandler),
         (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
         (r"/api/run_trajectory", ApiRunTrajectory),
     ], debug=True, autoreload=True)
@@ -146,4 +188,5 @@ def main():
 x = {"username": "andrzej", "args": [], "name": "loger_test", "level": "info", "line_no": 1, "traceback": 0, "filename": "<stdin>", "time": "2017-12-01T02:53:41.392427", "msg": "I am a message", "funcname": "<module>", "hostname": "deepspace9"}
 
 if __name__ == "__main__":
+    busy = False
     main()
