@@ -28,6 +28,7 @@ from tornado.options import define, options
 define("port", default=8888, help="run on the given port", type=int)
 
 import maestro
+import os
 import time
 
 # sp  = maestro.Controller()
@@ -58,7 +59,7 @@ trajectory = [
     [[1500, 1692, 1773, 1228, 904], 1]
 ]
 
-busy = False
+
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
@@ -72,14 +73,13 @@ class IdnHandler(tornado.web.RequestHandler):
         self.write("{}".format(out))
 
 class CmdHandler(tornado.web.RequestHandler):
+
     def get(self, cmd):
-        if not busy:
-            out = "command not implementd"
-            busy = True
-            time.sleep(10)
-            busy = False
-        else:
-            out = "busy"
+
+        busy = True
+        time.sleep(10)
+        out = "processed 10 second cmd"
+        busy = False
         self.write("{}".format(out))
 
 class ApiHandler(tornado.web.RequestHandler):
@@ -164,23 +164,48 @@ class ApiRunTrajectory(tornado.web.RequestHandler):
         endtime = time.time()
         self.write('cmd: {}, time: {}'.format("run_trajectory", endtime-starttime))
 
+
+class Application(tornado.web.Application):
+    def __init__(self):
+        self.busy = False
+        handlers = [
+            (r"/", MainHandler),
+            (r"/idn", IdnHandler),
+            (r"/cmd/(.*)", CmdHandler),
+            (r"/api/", ApiHandler),
+            (r"/api/json/(.*)", ApiJsonHandler),
+            (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
+            (r"/api/run_trajectory", ApiRunTrajectory),
+        ]
+
+        settings = dict(
+            cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+            template_path=os.path.join(os.path.dirname(__file__), "templates"),
+            static_path=os.path.join(os.path.dirname(__file__), "static"),
+            debug=True,
+            autoreload=True,
+            xsrf_cookies=False,
+        )
+        tornado.web.Application.__init__(self, handlers, **settings)
+
 def main():
     tornado.options.parse_command_line()
-    settings = {
-        'debug': True,
-        # other stuff
-    }
-   
-    application = tornado.web.Application([
-        (r"/", MainHandler),
-        (r"/idn", IdnHandler),
-        (r"/cmd/(.*)", CmdHandler),
-        (r"/api/", ApiHandler),
-        (r"/api/json/(.*)", ApiJsonHandler),
-        (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
-        (r"/api/run_trajectory", ApiRunTrajectory),
-    ], debug=True, autoreload=True)
+    # settings = {
+    #     'debug': True,
+    #     # other stuff
+    # }
+    #
+    # application = tornado.web.Application([
+    #     (r"/", MainHandler),
+    #     (r"/idn", IdnHandler),
+    #     (r"/cmd/(.*)", CmdHandler),
+    #     (r"/api/", ApiHandler),
+    #     (r"/api/json/(.*)", ApiJsonHandler),
+    #     (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
+    #     (r"/api/run_trajectory", ApiRunTrajectory),
+    # ], debug=True, autoreload=True)
 
+    application = Application()
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(options.port)
     tornado.ioloop.IOLoop.current().start()
