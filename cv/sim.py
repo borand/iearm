@@ -5,6 +5,7 @@ from scipy.spatial import distance as dist
 from imutils import perspective
 from imutils import contours
 import imutils
+import cvutils
 import numpy as np
 
 
@@ -29,54 +30,39 @@ cap = cv2.VideoCapture(0)
 # cap.set(4, 240)
 _, frame = cap.read()
 
-if __name__ == '__main__':
-    # Read image
-    # Select ROI
-    show_crosshair = False
-    from_center = False
-    r = cv2.selectROI(frame, from_center, show_crosshair)
 
-    # Crop image
-    imCrop = frame[int(r[1]):int(r[1] + r[3]), int(r[0]):int(r[0] + r[2])]
-
-    # Display cropped image
-    cv2.imshow("Image", imCrop)
-    cv2.waitKey(0)
-
+r = (57, 40, 550, 80)
+r = None
+# Read image
+# Select ROI
+if r is None:
+    r, frame = cvutils.preselect(cam=cap)
 
 # Creating a windows for later use
 cv2.namedWindow('Image')
+cv2.namedWindow('Frame')
 cv2.namedWindow('Fmask')
 cv2.namedWindow('Canny')
 
 # Creating track bar for min and max for hue, saturation and value
 # You can adjust the defaults as you like
 cv2.createTrackbar('Hist', 'Image', 7, 255, nothing)
-cv2.createTrackbar('gain', 'Image', 7, 255, nothing)
+cv2.createTrackbar('blur', 'Image', 3, 12, nothing)
 
 # fgbg = cv2.createBackgroundSubtractorMOG2()
-fgbg = cv2.bgsegm.createBackgroundSubtractorMOG(history=10)
+fgbg = cv2.bgsegm.createBackgroundSubtractorMOG(history=20)
 
 while (1):
     hist = cv2.getTrackbarPos('Hist', 'Image')
-    gain = cv2.getTrackbarPos('gain', 'Image')
+    b    = cv2.getTrackbarPos('blur', 'Image')
 
     _, frame = cap.read()
     image = frame[int(r[1]):int(r[1] + r[3]), int(r[0]):int(r[0] + r[2])]
+    [cnts, image] = cvutils.get_contours(image)
+    cm = cvutils.get_cm(image, cnts)
 
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (11, 11), 0)
-    # cv2.imshow("Image", blurred)
+    cv2.imshow('Image', image)
 
-    # The first thing we are going to do is apply edge detection to
-    # the image to reveal the outlines of the coins
-
-    fgmask = fgbg.apply(blurred)
-    edged = cv2.Canny(fgmask, 30, 150)
-
-    cv2.imshow('Fmask', fgmask)
-    cv2.imshow("Image", image)
-    cv2.imshow("Image", edged)
 
     k = cv2.waitKey(5) & 0xFF
     if k == 27:
