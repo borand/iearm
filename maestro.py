@@ -6,14 +6,10 @@ import os
 PY2 = version_info[0] == 2  # Running Python 2.x?
 
 trajectory = [
-    [[1500, 1692, 1773, 1228, 904], 2],
-    [[1477, 1185, 864, 1228, 904], 1],
-    [[1477, 1185, 864, 1228, 1671], 1],
-    [[1477, 2100, 864, 1228, 1671], 1],
-    [[802, 826, 1775, 1228, 1671], 1],
-    [[802, 826, 1775, 1228, 904], 1],
-    [[802, 1692, 1775, 1228, 904], 1],
-    [[1500, 1692, 1773, 1228, 904], 1]
+    [1500, 1500, 1500, 1500, 1500],
+    [2500, 1500, 1500, 1500, 1500],
+    [1000, 1500, 1500, 1500, 1500],
+    [1500, 1500, 1500, 1500, 1500],
 ]
 
 
@@ -57,6 +53,7 @@ class Controller:
         self.last_cmd_send = ''
         self.pololu_cmd = chr(0xaa) + chr(device)
         self.last_exception = ''
+        self.last_set_target_vector = []
 
         # Track target position for each servo. The function isMoving() will
         # use the Target vs Current servo position to determine if movement is
@@ -150,17 +147,20 @@ class Controller:
     def set_target_vector(self, targets, sleep_time=0):
         for chan, pos in enumerate(targets):
             self.set_target(chan, pos)
-        time.sleep(sleep_time)
-        to = time.time()
+        
+        pause_sec = calculate_movement_time(get_max_angle(self.last_set_target_vector, targets))
+        print(pause_sec)
+        time.sleep(pause_sec)
 
-        timeout = 5
-        while self.getMovingState(): #and time.time() - to < timeout:
-            pass
+        self.last_set_target_vector = targets
+        # timeout = 5
+        # while self.getMovingState(): #and time.time() - to < timeout:
+        #     pass
 
     def run_trajectory(self, trajectory=trajectory):
-        for pos in trajectory:
-            self.set_target_vector(pos[0], pos[1])
-
+        for new_target_vector in trajectory:
+            self.set_target_vector(new_target_vector)
+            
     # Set speed of channel
     # Speed is measured as 0.25microseconds/10milliseconds
     # For the standard 1ms pulse width change to move a servo between extremes, a speed
@@ -248,3 +248,26 @@ class Controller:
     def stopScript(self):
         cmd = chr(0x24)
         self.send(cmd)
+
+def get_max_angle(new_vector, old_vector):
+    '''
+    Determine maximum displace angle between current and the new position.    
+    '''
+    if len(new_vector) != len(old_vector):
+        raise NameError("Input and output vectors must be the same length.")
+    else:
+        return max([abs(a-b) for a,b in zip(new_vector, old_vector)])
+
+def calculate_movement_time(pwm_ms, speed_deg_per_sec=0):
+    '''
+    Calculate time to move the servo pwm increment.
+    '''
+
+    # TODO - read max/min pwm values and servo speed from a cal file.  The values will vary for different servos
+    angle_0deg = 500
+    angle_180deg = 2500    
+    angular_speed_sec_per_degree = 0.2 / 60.0 # servo speed is typically quoted in sec per 60 deg and vary with voltage and load
+
+    deg_per_ms = 180 / (angle_180deg - angle_0deg)
+    travel_angle = (pwm_ms * deg_per_ms) 
+    return travel_angle * angular_speed_sec_per_degree
