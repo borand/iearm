@@ -7,6 +7,22 @@ import logging
 
 PY2 = version_info[0] == 2  # Running Python 2.x?
 
+logger = logging.getLogger('maestro')
+logger.setLevel(logging.DEBUG)
+# create console handler with a higher log level
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(name)12s - %(levelname)10s - %(message)s')
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
+# create file handler which logs even debug messages
+# fh = logging.FileHandler('maestro.log')
+# fh.setLevel(logging.DEBUG)
+# fh.setFormatter(formatter)
+# logger.addHandler(fh)
+
+
 #
 # ---------------------------
 # Maestro Servo Controller
@@ -30,26 +46,26 @@ DEFAULT_CONFIG = {
     'home': [1500, 1500, 1500, 1500, 1500, 1500],
     'speed': [0, 0, 0, 0, 0, 0],
     'accel': [0, 0, 0, 0, 0, 0],
-    'speed_adjust' : 1,
-    'num_of_channels' : 6
+    'delay_adjust' : 1,
+    'num_of_channels' : 5
 }
 
-def load_config_file():
+def load_config_file(filename="maestro.json"):
     """
     Loads config file in json format and returns config dictionary
     """
-    if os.path.isfile('config.json'):
+    if os.path.isfile(filename):
         try:
-            fid = open('config.json','r')
+            fid = open(filename,'r')
             out = fid.read()
             fid.close()
             config = json.loads(out)
             return config
         except:            
-            logging.error("cannot decode maestro config.json file - using DEFAULT_CONFIG")
+            logger.error("cannot decode maestro config.json file - using DEFAULT_CONFIG")
             
     else:
-        logging.error("cannot find maestro config.json file in the directory - using DEFAULT_CONFIG")
+        logger.error("cannot find maestro config.json file in the directory - using DEFAULT_CONFIG")
     return DEFAULT_CONFIG
 
 class Controller:
@@ -78,35 +94,62 @@ class Controller:
         self.last_exception = ''
         self.last_set_target_vector = []
 
-        # Track target position for each servo. The function isMoving() will
+        # Track target position for each servo. The function is_moving() will
         # use the Target vs Current servo position to determine if movement is
         # occuring.  Upto 24 servos on a Maestro, (0-23). target_positions start at 0.
         self.target_positions = [0] * 24
         # Servo minimum and maximum targets can be restricted to protect components.
         self.Mins = [0] * 24
         self.Maxs = [0] * 24
-        self.config = load_config_file()
+        
+        logger.info("Controller(tty_str={}, device={})".format(self.tty_str, device))
 
         self.establish_connection()
         
         if not self.tty_port_connection_established:
-            logging.error("Did not establish connection during object initialization")
+            logger.error("Did not establish connection during object initialization")
+        else:
+            logger.info("Connection established")
 
-    def establish_connection(self):        
+    def __del__(self):
+        self.save_config_file()
+
+    def establish_connection(self):
+        logger.debug("Attempting to establish connection with: {}".format(self.tty_str))
         try:
             if os.path.exists(self.tty_str):
+                logger.debug("Found {} on the path".format(self.tty_str))
                 self.usb = serial.Serial(self.tty_str, timeout=1)
                 self.tty_port_exists = True
+                
+                self.config = load_config_file()
+                self.last_set_target_vector = self.get_all_positions()
+                
+                # Set speed of all channels from the config file
+                for s in enumerate(self.config['speed']):
+                    self.set_speed(s[0], s[1])
+
                 self.tty_port_connection_established = True
             else:
-                logging.error('Specified serial port does not exist')
+                logger.error('Specified serial port does not exist')
         except Exception as e:
             self.last_exception = e
-            logging.error("Cannot connect to the controller. last_exception = {}".format(e))
+            logger.error("Cannot connect to the controller. last_exception = {}".format(e))
     
-    def reload_default_config(self):
+    def reload_default_config(self, filename="maestro.json"):
         self.config = load_config_file()
     
+    def save_config_file(self, fileanme="last_maestro_config.json"):
+        """
+        Save current configuration to file for future usage.
+        """
+        logger.info('Saving current config as: {}'.format(fileanme))
+        try: 
+            fid = open(fileanme,'w')
+            fid.write(json.dumps(self.config))
+        except Exception as e:
+            logger.error(e)
+
     def close(self):
         """ Cleanup by closing USB serial port"""
         if self.tty_port_connection_established:
@@ -114,16 +157,16 @@ class Controller:
     
     def send(self, cmd):
         """ Send a Pololu command out the serial port """ 
-        self.last_cmd_send = cmd
-        logging.debug("send({})".format(cmd))
+        self.last_cmd_send = cmd        
         if self.establish_connection:
             cmd_str = self.pololu_cmd + cmd
             if PY2:
                 out = self.usb.write(cmd_str)
             else:
                 out = self.usb.write(bytes(cmd_str, 'latin-1'))
+            # logger.debug("send({})".format(out))
         else:
-            logging.warning("Cannot send command connection is not established")
+            logger.warning("Cannot send command connection is not established")
             out = -1
         return out
 
@@ -136,11 +179,11 @@ class Controller:
                 while time.time() - start_time < self.timeout:
                     if self.usb.in_waiting == 1:
                         response = ord(self.usb.read())
-                        logging.debug("read() = {}".format(response))
+                        logger.debug("read() = {}".format(response))
             else:
-                logging.warning("Cannot use read command when the port is closed")
+                logger.warning("Cannot use read command when the port is closed")
         else:
-            logging.warning("Cannot use read command when connection is not established")
+            logger.warning("Cannot use read command when connection is not established")
         return response
    
     def set_range(self, chan, min, max):
@@ -156,7 +199,7 @@ class Controller:
             self.Mins[chan] = min
             self.Maxs[chan] = max
         else:
-            logging.error("Specified channel is out of range")
+            logger.error("Specified channel is out of range")
     
     def get_min(self, chan):
         """ Return Minimum channel range value"""
@@ -196,8 +239,8 @@ class Controller:
         for chan, pos in enumerate(targets):
             self.set_target(chan, pos)
         
-        pause_sec = get_slowest_movement_time(self.last_set_target_vector, targets, self.config['speed'])
-        print(pause_sec)
+        pause_sec = self.get_slowest_movement_time(self.last_set_target_vector)
+        logger.debug("set_target_vector pause time: {}".format(pause_sec))
         time.sleep(pause_sec)
 
         self.last_set_target_vector = targets
@@ -223,7 +266,7 @@ class Controller:
         self.send(cmd)
         self.config['speed'][chan] = speed
 
-    def setAccel(self, chan, accel):
+    def set_accel(self, chan, accel):
         """
         Set acceleration of channel
         This provide soft starts and finishes when servo moves to target position.
@@ -235,7 +278,6 @@ class Controller:
         cmd = chr(0x09) + chr(chan) + chr(lsb) + chr(msb)
         self.send(cmd)
 
-
     def get_position(self, chan):
         """
         Get the current position of the device on the specified channel
@@ -246,40 +288,47 @@ class Controller:
         the position result will align well with the acutal servo position, assuming
         it is not stalled or slowed.
         """
-        cmd = chr(0x10) + chr(chan)
-        self.send(cmd)
-        self.timeout = 1
-        start_time = time.time()
-        while time.time() - start_time < self.timeout:
-            if self.usb.in_waiting == 2:
-                lsb = ord(self.usb.read())
-                msb = ord(self.usb.read())
-                return ((msb << 8) + lsb) / 4
-        if time.time() - start_time > self.timeout:
-            print('read timed out')
-        return -1
+        response = -1
+        if self.tty_port_connection_established:
+            cmd = chr(0x10) + chr(chan)
+            self.send(cmd)
+            self.timeout = 1
+            start_time = time.time()
+            while time.time() - start_time < self.timeout:
+                if self.usb.in_waiting == 2:
+                    lsb = ord(self.usb.read())
+                    msb = ord(self.usb.read())
+                    return ((msb << 8) + lsb) / 4
+            if time.time() - start_time > self.timeout:
+                print('read timed out')
+        
+        return response
 
     def get_all_positions(self):
-        return [self.get_position(x) for x in range(0, 24)]
-
-    # Test to see if a servo has reached the set target position.  This only provides
-    # useful results if the Speed parameter is set slower than the maximum speed of
-    # the servo.  Servo range must be defined first using set_range. See set_range comment.
-    #
-    # ***Note if target position goes outside of Maestro's allowable range for the
-    # channel, then the target can never be reached, so it will appear to always be
-    # moving to the target.
-    def isMoving(self, chan):
+        return [self.get_position(x) for x in range(0, self.config['num_of_channels'])]
+    
+    def is_moving(self, chan):
+        """
+        Test to see if a servo has reached the set target position.  This only provides
+        useful results if the Speed parameter is set slower than the maximum speed of
+        the servo.  Servo range must be defined first using set_range. See set_range comment.
+        
+        ***Note if target position goes outside of Maestro's allowable range for the
+        channel, then the target can never be reached, so it will appear to always be
+        moving to the target.
+        """
         if self.target_positions[chan] > 0:
             if abs(self.get_position(chan) - self.target_positions[chan]) > 10:
                 return 1
         return 0
-
-    # Have all servo outputs reached their targets? This is useful only if Speed and/or
-    # Acceleration have been set on one or more of the channels. Returns True or False.
-    # Not available with Micro Maestro.
-    def getMovingState(self):
-        return sum([self.isMoving(x) for x in range(0, 5)])
+    
+    def get_moving_state(self):
+        """
+        Have all servo outputs reached their targets? This is useful only if Speed and/or
+        Acceleration have been set on one or more of the channels. Returns True or False.
+        Not available with Micro Maestro.
+        """
+        return sum([self.is_moving(x) for x in range(0, 5)])
         # Does not work on maestro6
         # cmd = chr(0x13)
         # self.send(cmd)
@@ -287,49 +336,57 @@ class Controller:
         #     return False
         # else:
         #     return True
-
-    # Run a Maestro Script subroutine in the currently active script. Scripts can
-    # have multiple subroutines, which get numbered sequentially from 0 on up. Code your
-    # Maestro subroutine to either infinitely loop, or just end (return is not valid).
-    def runScriptSub(self, subNumber):
+    
+    def run_scriptSub(self, subNumber):
+        """
+        Run a Maestro Script subroutine in the currently active script. Scripts can
+        have multiple subroutines, which get numbered sequentially from 0 on up. Code your
+        Maestro subroutine to either infinitely loop, or just end (return is not valid).
+        """
         cmd = chr(0x27) + chr(subNumber)
         # can pass a param with command 0x28
         # cmd = chr(0x28) + chr(subNumber) + chr(lsb) + chr(msb)
         self.send(cmd)
-
-    # Stop the current Maestro Script
-    def stopScript(self):
+    
+    def stop_script(self):
+        """
+        Stop the current Maestro Script
+        """
         cmd = chr(0x24)
         self.send(cmd)
 
-def get_max_angle(new_vector, old_vector):
-    '''
-    Determine maximum displace angle between current and the new position.    
-    '''
-    if len(new_vector) != len(old_vector):
-        raise NameError("Input and output vectors must be the same length.")
-    else:
-        return max([abs(a-b) for a,b in zip(new_vector, old_vector)])
+    def get_max_angle(self, new_vector):
+        '''
+        Determine maximum displace angle between current and the new position.    
+        '''
+        old_vector=self.last_set_target_vector
+        if len(new_vector) != len(old_vector):
+            raise NameError("Input and output vectors must be the same length.")
+        else:
+            return max([abs(a-b) for a,b in zip(new_vector, old_vector)])
 
-def calculate_movement_time(pwm_ms, speed_deg_per_sec=0):
-    '''
-    Calculate time to move the servo pwm increment.
-    '''
+    def calculate_movement_time(self, pwm_ms, speed_deg_per_sec=0):
+        '''
+        Calculate time to move the servo pwm increment.
+        '''
 
-    # TODO - read max/min pwm values and servo speed from a cal file.  The values will vary for different servos
-    angle_0deg = 500
-    angle_180deg = 2500    
-    angular_speed_sec_per_degree = 0.2 / 60.0 # servo speed is typically quoted in sec per 60 deg and vary with voltage and load
+        # TODO - read max/min pwm values and servo speed from a cal file.  The values will vary for different servos
+        angle_0deg = 500
+        angle_180deg = 2500    
+        angular_speed_sec_per_degree = 0.2 / 60.0 # servo speed is typically quoted in sec per 60 deg and vary with voltage and load
 
-    deg_per_ms = 180 / (angle_180deg - angle_0deg)
-    travel_angle = (pwm_ms * deg_per_ms) 
-    return travel_angle * angular_speed_sec_per_degree
+        deg_per_ms = 180 / (angle_180deg - angle_0deg)
+        travel_angle = (pwm_ms * deg_per_ms) 
+        return travel_angle * angular_speed_sec_per_degree
 
-def get_slowest_movement_time(new_vector, old_vector, speed):
-    speed_us_per_ms = [ 0.25 * v / 10.0 for v in speed] 
-    delta_pwm_us = [abs(a-b) for a,b in zip(new_vector, old_vector)]
-    slowest_movement_at_speed = max([s*t for s,t in zip(speed_us_per_ms, delta_pwm_us)]) / 1000.0
-    slowest_movement_at_speed_0 = calculate_movement_time(get_max_angle(new_vector, old_vector))
-    return max([slowest_movement_at_speed, slowest_movement_at_speed_0])
+    def get_slowest_movement_time(self, new_vector):
+        old_vector = self.last_set_target_vector
+        speed = self.config['speed']
+        speed_us_per_ms = [ 0.25 * v / 10.0 for v in speed]
+        delta_pwm_us = [abs(a-b) for a,b in zip(new_vector, old_vector)]
+        slowest_movement_at_speed =  self.config['delay_adjust'] * max([s*t for s,t in zip(speed_us_per_ms, delta_pwm_us)]) / 1000.0
+        slowest_movement_at_speed_0 = self.calculate_movement_time(self.get_max_angle(new_vector))
+        logger.debug("slowest_movement_at_speed={}, slowest_movement_at_speed_0={}".format(slowest_movement_at_speed, slowest_movement_at_speed_0))
+        return max([slowest_movement_at_speed, slowest_movement_at_speed_0])
 
     
