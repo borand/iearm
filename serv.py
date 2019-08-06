@@ -31,7 +31,7 @@ import maestro
 import os
 import time
 
-# sp  = maestro.Controller()
+sp  = maestro.Controller()
 # sp2 = maestro.Controller('/dev/ttyACM2')
 
 dev = {"light": 0}
@@ -190,27 +190,10 @@ class Application(tornado.web.Application):
 
 def main():
     tornado.options.parse_command_line()
-    # settings = {
-    #     'debug': True,
-    #     # other stuff
-    # }
-    #
-    # application = tornado.web.Application([
-    #     (r"/", MainHandler),
-    #     (r"/idn", IdnHandler),
-    #     (r"/cmd/(.*)", CmdHandler),
-    #     (r"/api/", ApiHandler),
-    #     (r"/api/json/(.*)", ApiJsonHandler),
-    #     (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
-    #     (r"/api/run_trajectory", ApiRunTrajectory),
-    # ], debug=True, autoreload=True)
-
     application = Application()
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(options.port)
     tornado.ioloop.IOLoop.current().start()
-
-x = {"username": "andrzej", "args": [], "name": "loger_test", "level": "info", "line_no": 1, "traceback": 0, "filename": "<stdin>", "time": "2017-12-01T02:53:41.392427", "msg": "I am a message", "funcname": "<module>", "hostname": "deepspace9"}
 
 if __name__ == "__main__":
     busy = False

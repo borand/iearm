@@ -12,7 +12,7 @@ logger.setLevel(logging.DEBUG)
 # create console handler with a higher log level
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(name)12s - %(levelname)10s - %(message)s')
+formatter = logging.Formatter('%(filename)10s:%(lineno)3d - %(levelname)10s - %(message)s')
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
@@ -41,11 +41,12 @@ str_to_byte = {
 }
 
 DEFAULT_CONFIG = {
-    'min': [500, 500, 500, 500, 500, 500],
-    'max': [2500, 2500, 2500, 2500, 2500, 2500],
-    'home': [1500, 1500, 1500, 1500, 1500, 1500],
-    'speed': [0, 0, 0, 0, 0, 0],
-    'accel': [0, 0, 0, 0, 0, 0],
+    'min': [500, 500, 500, 500, 500],
+    'max': [2500, 2500, 2500, 2500, 2500],
+    'home': [110,110,130,110,45],
+    'cal' : [[2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180]],
+    'speed': [1000, 1000, 1000, 1000, 1000],
+    'accel': [1000, 1000, 1000, 1000, 1000],
     'delay_adjust' : 1,
     'num_of_channels' : 5
 }
@@ -67,6 +68,22 @@ def load_config_file(filename="maestro.json"):
     else:
         logger.error("cannot find maestro config.json file in the directory - using DEFAULT_CONFIG")
     return DEFAULT_CONFIG
+
+def ang_2_pwm(ang, cal):
+    """
+    Converts rotation angle to PWM pulse duration based on calibration value for a given servo.  The calibration consists of 
+    [pmw_at_0_deg, pwm_at_max_travel, max_travel_in_deg]
+    """
+    if not (ang >= 0 and ang <= 360):
+        raise NameError("in ang_2_pwm(ang, cal), ang must be between 0 and 360 degrees")
+    if not len(cal) == 3:
+        raise NameError("in ang_2_pwm(ang, cal), cal must be a 3 element list")
+
+    pwm_at_0_deg      = cal[0]
+    pwm_at_max_travel = cal[1]
+    max_travel_in_deg = cal[2]
+    pwm = ang * (pwm_at_max_travel - pwm_at_0_deg) / max_travel_in_deg + pwm_at_0_deg
+    return round(pwm)
 
 class Controller:
     """
@@ -195,6 +212,7 @@ class Controller:
         which has precedence over these values.  Use the Maestro Control Center to configure
         ranges that are saved to the controller.  Use set_range for software controllable ranges.
         """
+        logger.warning("This function will be removed - do not use in future code")
         if chan >=0 and chan <=24:
             self.Mins[chan] = min
             self.Maxs[chan] = max
@@ -203,10 +221,12 @@ class Controller:
     
     def get_min(self, chan):
         """ Return Minimum channel range value"""
+        logger.warning("This function will be removed - do not use in future code")
         return self.Mins[chan]
 
-    def getMax(self, chan):
+    def get_max(self, chan):
         """ Return Maximum channel range value """
+        logger.warning("This function will be removed - do not use in future code")
         return self.Maxs[chan]
 
     def set_target(self, chan: object, target: object) -> object:
@@ -235,22 +255,32 @@ class Controller:
         self.send(cmd)
         # Record Target value
 
-    def set_target_vector(self, targets, sleep_time=0):
-        for chan, pos in enumerate(targets):
+    def set_target_vector(self, target_vector, angle=0):
+        for chan, pos in enumerate(target_vector):
+            if angle or pos <= 360:
+                pos = ang_2_pwm(pos, self.config["cal"][chan])
+                target_vector[chan] = pos # update the target vector with pwm values if vector given in degrees
             self.set_target(chan, pos)
         
-        pause_sec = self.get_slowest_movement_time(self.last_set_target_vector)
+        pause_sec = self.get_slowest_movement_time(target_vector)
         logger.debug("set_target_vector pause time: {}".format(pause_sec))
         time.sleep(pause_sec)
 
-        self.last_set_target_vector = targets
+        self.last_set_target_vector = target_vector
         # timeout = 5
         # while self.getMovingState(): #and time.time() - to < timeout:
         #     pass
 
-    def run_trajectory(self, trajectory):
-        for new_target_vector in trajectory:
-            self.set_target_vector(new_target_vector)
+    def go_home(self):
+        self.set_target_vector(self.config['home'])
+
+    def run_sequency(self, sequencye):
+        for new_target_vector in sequencye:
+            if len(new_target_vector) == 1:
+                logger.debug("run_sequence pause for {} sec".format(new_target_vector[0]))
+                time.sleep(new_target_vector[0])
+            else:
+                self.set_target_vector(new_target_vector)
    
     def set_speed(self, chan, speed):
         """
@@ -337,7 +367,7 @@ class Controller:
         # else:
         #     return True
     
-    def run_scriptSub(self, subNumber):
+    def run_script_sub(self, subNumber):
         """
         Run a Maestro Script subroutine in the currently active script. Scripts can
         have multiple subroutines, which get numbered sequentially from 0 on up. Code your
@@ -355,19 +385,21 @@ class Controller:
         cmd = chr(0x24)
         self.send(cmd)
 
-    def get_max_angle(self, new_vector):
+    def get_max_pwm(self, new_vector):
         '''
         Determine maximum displace angle between current and the new position.    
         '''
-        old_vector=self.last_set_target_vector
+        old_vector = self.last_set_target_vector
         if len(new_vector) != len(old_vector):
             raise NameError("Input and output vectors must be the same length.")
         else:
-            return max([abs(a-b) for a,b in zip(new_vector, old_vector)])
+            max_pwm = max([abs(a-b) for a,b in zip(new_vector, old_vector)]);
+            logger.debug("old: {}, new: {}, max angle: {}".format(old_vector, new_vector, max_pwm))
+            return max_pwm
 
     def calculate_movement_time(self, pwm_ms, speed_deg_per_sec=0):
         '''
-        Calculate time to move the servo pwm increment.
+        Calculate time to move the servo pwm increment.  This calculation is based only on the servo parameters and not maestro settings.
         '''
 
         # TODO - read max/min pwm values and servo speed from a cal file.  The values will vary for different servos
@@ -384,8 +416,8 @@ class Controller:
         speed = self.config['speed']
         speed_us_per_ms = [ 0.25 * v / 10.0 for v in speed]
         delta_pwm_us = [abs(a-b) for a,b in zip(new_vector, old_vector)]
-        slowest_movement_at_speed =  self.config['delay_adjust'] * max([s*t for s,t in zip(speed_us_per_ms, delta_pwm_us)]) / 1000.0
-        slowest_movement_at_speed_0 = self.calculate_movement_time(self.get_max_angle(new_vector))
+        slowest_movement_at_speed =  self.config['delay_adjust'] * max([pwm / s for s, pwm in zip(speed_us_per_ms, delta_pwm_us)]) / 1000.0
+        slowest_movement_at_speed_0 = self.calculate_movement_time(self.get_max_pwm(new_vector))
         logger.debug("slowest_movement_at_speed={}, slowest_movement_at_speed_0={}".format(slowest_movement_at_speed, slowest_movement_at_speed_0))
         return max([slowest_movement_at_speed, slowest_movement_at_speed_0])
 
