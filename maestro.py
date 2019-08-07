@@ -74,15 +74,20 @@ def ang_2_pwm(ang, cal):
     Converts rotation angle to PWM pulse duration based on calibration value for a given servo.  The calibration consists of 
     [pmw_at_0_deg, pwm_at_max_travel, max_travel_in_deg]
     """
-    if not (ang >= 0 and ang <= 360):
-        raise NameError("in ang_2_pwm(ang, cal), ang must be between 0 and 360 degrees")
+            
     if not len(cal) == 3:
         raise NameError("in ang_2_pwm(ang, cal), cal must be a 3 element list")
 
-    pwm_at_0_deg      = cal[0]
-    pwm_at_max_travel = cal[1]
-    max_travel_in_deg = cal[2]
-    pwm = ang * (pwm_at_max_travel - pwm_at_0_deg) / max_travel_in_deg + pwm_at_0_deg
+    if ang >= 0 and ang <= 360:
+        pwm_at_0_deg      = cal[0]
+        pwm_at_max_travel = cal[1]
+        max_travel_in_deg = cal[2]
+        pwm = ang * (pwm_at_max_travel - pwm_at_0_deg) / max_travel_in_deg + pwm_at_0_deg
+    else:
+        # Ignore the coverson and we assume that the value is in units of PWM.
+        # TODO could check if the value is between min/max PWM allowd, though it would require passing in the entire config structure
+        pwm = ang
+
     return round(pwm)
 
 class Controller:
@@ -255,16 +260,27 @@ class Controller:
         self.send(cmd)
         # Record Target value
 
-    def set_target_vector(self, target_vector, angle=0):
+    def set_target_vector(self, target_vector, match_speed=0):
         for chan, pos in enumerate(target_vector):
-            if angle or pos <= 360:
+            if pos >=0 or pos <= 360:
                 pos = ang_2_pwm(pos, self.config["cal"][chan])
                 target_vector[chan] = pos # update the target vector with pwm values if vector given in degrees
-            self.set_target(chan, pos)
-        
+            self.set_target(chan, pos)        
         pause_sec = self.get_slowest_movement_time(target_vector)
+        if match_speed:
+            initial_speed = self.config["speed"]
+            new_speeds = self.match_movement_speed(target_vector)
+            for chan, speed in enumerate(new_speeds):
+                if speed > 0:
+                    self.set_speed(chan, speed)
+
         logger.debug("set_target_vector pause time: {}".format(pause_sec))
+
         time.sleep(pause_sec)
+        if match_speed:
+            for chan, speed in enumerate(initial_speed):
+                self.set_speed(chan, speed)
+
 
         self.last_set_target_vector = target_vector
         # timeout = 5
@@ -284,11 +300,18 @@ class Controller:
    
     def set_speed(self, chan, speed):
         """
-        Set speed of channel
-        Speed is measured as 0.25microseconds/10milliseconds
-        For the standard 1ms pulse width change to move a servo between extremes, a speed
-        of 1 will take 1 minute, and a speed of 60 would take 1 second.
-        Speed of 0 is unrestricted.
+        This command limits the speed at which a servo channel’s output value changes. 
+        The speed limit is given in units of (0.25 μs)/(10 ms), except in special cases (see Section 4.b). 
+        For example, the command 0x87, 0x05, 0x0C, 0x01 sets the speed of servo channel 5 to a value of 140, 
+        which corresponds to a speed of 3.5 μs/ms. What this means is that if you send a Set Target 
+        command to adjust the target from, say, 1000 μs to 1350 μs, it will take 100 ms to make that adjustment. 
+        A speed of 0 makes the speed unlimited. Setting the target of a channel that has a speed of 0 
+        and an acceleration 0 will immediately affect the channel’s position. Note that the actual 
+        speed at which your servo moves is also limited by the design of the servo itself, 
+        the supply voltage, and mechanical loads; this parameter will not help your servo go faster 
+        than what it is physically capable of.
+        At the minimum speed setting of 1, the servo output takes 40 seconds to move from 1 to 2 ms. 
+        The speed setting has no effect on channels configured as inputs or digital outputs.
         """
         lsb = speed & 0x7f  # 7 bits for least significant byte
         msb = (speed >> 7) & 0x7f  # shift 7 and take next 7 bits for msb
@@ -389,13 +412,23 @@ class Controller:
         '''
         Determine maximum displace angle between current and the new position.    
         '''
+        max_pwm = max(self.get_pwm_delta(new_vector))
+        old_vector = self.last_set_target_vector
+        logger.debug("old: {}, new: {}, max angle: {}".format(old_vector, new_vector, max_pwm))
+        return max_pwm
+
+    def get_pwm_delta(self, new_vector):
+        '''
+        Determine displace pwm between current and the new position.
+        '''
         old_vector = self.last_set_target_vector
         if len(new_vector) != len(old_vector):
             raise NameError("Input and output vectors must be the same length.")
         else:
-            max_pwm = max([abs(a-b) for a,b in zip(new_vector, old_vector)]);
-            logger.debug("old: {}, new: {}, max angle: {}".format(old_vector, new_vector, max_pwm))
-            return max_pwm
+            # ensure that the new_vector is in units of pwm duration not in degrees.  If it was passed in degrees convert to pwm
+            new_vector = [ang_2_pwm(x, self.config['cal'][ix]) for ix, x in enumerate(new_vector)]
+            pwm = [abs(a-b) for a,b in zip(new_vector, old_vector)]
+        return pwm
 
     def calculate_movement_time(self, pwm_ms, speed_deg_per_sec=0):
         '''
@@ -411,9 +444,22 @@ class Controller:
         travel_angle = (pwm_ms * deg_per_ms) 
         return travel_angle * angular_speed_sec_per_degree
 
+    def match_movement_speed(self, new_vector):
+        """
+        Sets the speed of all axis, such that all axis arrive at the new target vector at the same time.
+        """
+        pwm_delta = self.get_pwm_delta(new_vector)
+        dt_sec = self.get_slowest_movement_time(new_vector)
+        dt_ms = dt_sec * 1000
+        new_speeds = [round( (d/dt_ms) * 4 * 10) for d in pwm_delta]
+        return new_speeds
+
+
     def get_slowest_movement_time(self, new_vector):
+        
         old_vector = self.last_set_target_vector
         speed = self.config['speed']
+
         speed_us_per_ms = [ 0.25 * v / 10.0 for v in speed]
         delta_pwm_us = [abs(a-b) for a,b in zip(new_vector, old_vector)]
         slowest_movement_at_speed =  self.config['delay_adjust'] * max([pwm / s for s, pwm in zip(speed_us_per_ms, delta_pwm_us)]) / 1000.0
