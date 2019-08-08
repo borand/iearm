@@ -4,6 +4,7 @@ import json
 from sys import version_info
 import os
 import logging
+import copy
 
 PY2 = version_info[0] == 2  # Running Python 2.x?
 
@@ -260,15 +261,16 @@ class Controller:
         self.send(cmd)
         # Record Target value
 
-    def set_target_vector(self, target_vector, match_speed=0):
+    def set_target_vector(self, target_vector, match_speed=1):
+        
+        initial_speed = copy.copy(self.config["speed"])
         for chan, pos in enumerate(target_vector):
             if pos >=0 or pos <= 360:
                 pos = ang_2_pwm(pos, self.config["cal"][chan])
                 target_vector[chan] = pos # update the target vector with pwm values if vector given in degrees
             self.set_target(chan, pos)        
         pause_sec = self.get_slowest_movement_time(target_vector)
-        if match_speed:
-            initial_speed = self.config["speed"]
+        if match_speed:            
             new_speeds = self.match_movement_speed(target_vector)
             for chan, speed in enumerate(new_speeds):
                 if speed > 0:
@@ -290,13 +292,13 @@ class Controller:
     def go_home(self):
         self.set_target_vector(self.config['home'])
 
-    def run_sequency(self, sequencye):
+    def run_sequency(self, sequencye, match_speed=1):
         for new_target_vector in sequencye:
             if len(new_target_vector) == 1:
                 logger.debug("run_sequence pause for {} sec".format(new_target_vector[0]))
                 time.sleep(new_target_vector[0])
             else:
-                self.set_target_vector(new_target_vector)
+                self.set_target_vector(new_target_vector, match_speed)
    
     def set_speed(self, chan, speed):
         """
@@ -451,7 +453,10 @@ class Controller:
         pwm_delta = self.get_pwm_delta(new_vector)
         dt_sec = self.get_slowest_movement_time(new_vector)
         dt_ms = dt_sec * 1000
-        new_speeds = [round( (d/dt_ms) * 4 * 10) for d in pwm_delta]
+        if dt_ms > 0:
+            new_speeds = [round( (d/dt_ms) * 4 * 10) for d in pwm_delta]
+        else:
+            new_speeds = self.config["speed"]
         return new_speeds
 
 
