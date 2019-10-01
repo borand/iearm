@@ -472,4 +472,12 @@ class Controller:
         logger.debug("slowest_movement_at_speed={}, slowest_movement_at_speed_0={}".format(slowest_movement_at_speed, slowest_movement_at_speed_0))
         return max([slowest_movement_at_speed, slowest_movement_at_speed_0])
 
+    def chop(self, chan, minmax, num, pause):
+        while num:
+            num = num - 1
+            self.set_target(chan, minmax[0])
+            time.sleep(pause)
+            self.set_target(chan, minmax[1])
+        
+
     

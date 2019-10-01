@@ -58,6 +58,32 @@ $(document).ready(function() {
 
     });
 
+
+    $('#throttle-stick').joystick({
+		//xAxis: false,
+		moveEvent: function(pos) { console.log('throttle:' + pos.y) },
+		endEvent: function(pos) { console.log('throttle:' + pos.y) }
+	});
+	$('#yaw-stick').joystick({
+		yAxis: false,
+		xSnap: true,
+		moveEvent: function(pos) { console.log('yaw:' + pos.x) },
+		endEvent: function(pos) { console.log('yaw:' + pos.x) }
+    });
+    $('#r-stick').joystick({
+		yAxis: false,
+		xSnap: true,
+		moveEvent: function(pos) { console.log('yaw:' + pos.x) },
+		endEvent: function(pos) { console.log('yaw:' + pos.x) }
+    });
+    
+    
+	
+	$('#throttle-stick').joystick('value', 0.5, 0);
+	$('#yaw-stick').joystick('value', 1, 0.5);
+	
+	var y = $('#throttle-stick').joystick('value').y;
+	console.log(y);
 });
 
 function newMessage(form) {

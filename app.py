@@ -140,13 +140,13 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 logging.info("moving right arm {}".format(int(parsed["body"])))
 
         else:
-            parsed = tornado.escape.json_decode(message)
-            chat = {"id": str(uuid.uuid4()), "body": parsed["body"]}
-            chat["html"] = tornado.escape.to_basestring(
-                self.render_string("message.html", message=chat)
-            )
+            # parsed = tornado.escape.json_decode(message)
+            # chat = {"id": str(uuid.uuid4()), "body": parsed["body"]}
+            # chat["html"] = tornado.escape.to_basestring(
+            #     self.render_string("message.html", message=chat)
+            # )
 
-            ChatSocketHandler.update_cache(chat)
+            # ChatSocketHandler.update_cache(chat)
             ChatSocketHandler.send_updates(chat)
 
 
