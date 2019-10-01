@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright 2009 Facebook
 #
@@ -14,187 +14,116 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-
-
-
-import tornado.httpserver
+import asyncio
+import tornado.escape
 import tornado.ioloop
-import tornado.options
+import tornado.locks
 import tornado.web
-import json
+import os.path
+import uuid
 
-from tornado.options import define, options
+from tornado.options import define, options, parse_command_line
 
-define("port", default=8888, help="run on the given port", type=int)
+define("port", default=8000, help="run on the given port", type=int)
+define("debug", default=True, help="run in debug mode")
 
-import maestro
-import os
-import time
 
-sp  = maestro.Controller()
-# sp2 = maestro.Controller('/dev/ttyACM2')
+class MessageBuffer(object):
+    def __init__(self):
+        # cond is notified whenever the message cache is updated
+        self.cond = tornado.locks.Condition()
+        self.cache = []
+        self.cache_size = 200
 
-dev = {"light": 0}
+    def get_messages_since(self, cursor):
+        """Returns a list of messages newer than the given cursor.
 
-trajectory2 = [
-    [[1500, 1150, 1275, 1000],  0.5],
-    [[2300, 1850, 1275, 1000], 0.5],
-    [[2300, 1950, 1275, 1000], 0.5],
-    [[2300, 1950, 1275, 1800], 0.5],
-    [[2300, 1150, 1975, 1800], 0.5],
-    [[1100, 1150, 1975, 1800], 0.5],
-    [[950, 1950, 1175, 1800], 0.5],
-    [[950, 1950, 1175, 1000], 0.5],
-    [[1500, 1150, 1275, 1000],  0.5],
-    ]
+        ``cursor`` should be the ``id`` of the last message received.
+        """
+        results = []
+        for msg in reversed(self.cache):
+            if msg["id"] == cursor:
+                break
+            results.append(msg)
+        results.reverse()
+        return results
 
-trajectory = [
-    [[1500, 1692, 1773, 1228, 904], 2],
-    [[1477, 1185, 864, 1228, 904], 1],
-    [[1477, 1185, 864, 1228, 1671], 1],
-    [[1477, 2100, 864, 1228, 1671], 1],
-    [[802, 826, 1675, 1228, 1671], 1],
-    [[802, 826, 1675, 1228, 904], 1],
-    [[802, 1692, 1675, 1228, 904], 1],
-    [[1500, 1692, 1773, 1228, 904], 1]
-]
+    def add_message(self, message):
+        self.cache.append(message)
+        if len(self.cache) > self.cache_size:
+            self.cache = self.cache[-self.cache_size :]
+        self.cond.notify_all()
 
+
+# Making this a non-singleton is left as an exercise for the reader.
+global_message_buffer = MessageBuffer()
 
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        # self.write("Hello, world")
-        items = ["Item 1", "Item 2", "Item 3"]
-        self.render("main.html", title="My title", items=items)
-
-class IdnHandler(tornado.web.RequestHandler):
-    def get(self):
-        out = "not implemented"
-        self.write("{}".format(out))
-
-class CmdHandler(tornado.web.RequestHandler):
-
-    def get(self, cmd):
-
-        busy = True
-        time.sleep(10)
-        out = "processed 10 second cmd"
-        busy = False
-        self.write("{}".format(out))
-
-class ApiHandler(tornado.web.RequestHandler):
-
-    def get(self, *arg):
-        print("get")
-        self.write('{"is_active": "true"}')
-
-    def put(self, *arg, **kwargs):
-        print("put")
-        self.write('{"is_active": "false"}')
-
-    def post(self, *arg, **kwargs):
-        print("post ----------------------------------------------")
-        print(self.request)
-        body = self.request.body.decode("utf-8")
-        try:
-            out = json.loads(body)
-            dev[out["dev"]] = out["active"]
-        except:
-            out = 'could not decode'
-        print("body = {}, type = {}, json = {}".format(body, type(body), out))
-
-        self.write('{"is_active": "true"}')
-
-class ApiJsonHandler(tornado.web.RequestHandler):
-
-    def get(self, js, *arg):
-        print(js)
-        try:
-            out = json.loads(js)
-        except Exception as e:
-            out = e
-            print(out)
-            
-
-        self.write("json out ='{0}'".format(out))
-
-    def put(self, *arg, **kwargs):
-        print("put")
-        self.write('{"is_active": "false"}')
-
-    def post(self, *arg, **kwargs):
-        print("post ----------------------------------------------")
-        print(self.request)
-        body = self.request.body.decode("utf-8")
-        try:
-            out = json.loads(body)
-            dev[out["dev"]] = out["active"]
-        except:
-            out = 'could not decode'
-        print("body = {}, type = {}, json = {}".format(body, type(body), out))
-
-        self.write('{"is_active": "true"}')
+        self.render("index.html", messages=global_message_buffer.cache)
 
 
-class ApiSetPos(tornado.web.RequestHandler):
+class MessageNewHandler(tornado.web.RequestHandler):
+    """Post a new message to the chat room."""
 
-    def get(self, chan, pos, *arg):
-        print("ApiSetPos get chan{}-{}, pos{}-{}".format(chan, type(chan), pos, type(pos)))
-
-        start_time = time.time()
-        try:
-            #sp.set_target(int(chan), int(pos))
-            success = 1
-        except:
-            success = 0
-        end_time = time.time()
-        out = {"cmd": chan, "pos": pos, "cmd": "set_target", "success" : success, "etime": start_time - end_time}
-        self.write(json.dumps(out))
-
-class ApiRunTrajectory(tornado.web.RequestHandler):
-
-    def get(self, *arg):
-        # print("ApiSetPos get chan{}-{}, pos{}-{}".format(arg))
-        starttime = time.time()
-
-        #sp.run_trajectory(trajectory)
-        time.sleep(1);
-        #sp2.run_trajectory(trajectory2)
-
-        endtime = time.time()
-        self.write('cmd: {}, time: {}'.format("run_trajectory", endtime-starttime))
-
-
-class Application(tornado.web.Application):
-    def __init__(self):
-        self.busy = False
-        handlers = [
-            (r"/", MainHandler),
-            (r"/idn", IdnHandler),
-            (r"/cmd/(.*)", CmdHandler),
-            (r"/api/", ApiHandler),
-            (r"/api/json/(.*)", ApiJsonHandler),
-            (r"/api/setpos/([0-5])/pos/(\d+)", ApiSetPos),
-            (r"/api/run_trajectory", ApiRunTrajectory),
-        ]
-
-        settings = dict(
-            cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-            template_path=os.path.join(os.path.dirname(__file__), "templates"),
-            static_path=os.path.join(os.path.dirname(__file__), "static"),
-            debug=True,
-            autoreload=True,
-            xsrf_cookies=False,
+    def post(self):
+        message = {"id": str(uuid.uuid4()), "body": self.get_argument("body")}
+        # render_string() returns a byte string, which is not supported
+        # in json, so we must convert it to a character string.
+        message["html"] = tornado.escape.to_unicode(
+            self.render_string("message.html", message=message)
         )
-        tornado.web.Application.__init__(self, handlers, **settings)
+        if self.get_argument("next", None):
+            self.redirect(self.get_argument("next"))
+        else:
+            self.write(message)
+        global_message_buffer.add_message(message)
+
+
+class MessageUpdatesHandler(tornado.web.RequestHandler):
+    """Long-polling request for new messages.
+
+    Waits until new messages are available before returning anything.
+    """
+
+    async def post(self):
+        cursor = self.get_argument("cursor", None)
+        messages = global_message_buffer.get_messages_since(cursor)
+        while not messages:
+            # Save the Future returned here so we can cancel it in
+            # on_connection_close.
+            self.wait_future = global_message_buffer.cond.wait()
+            try:
+                await self.wait_future
+            except asyncio.CancelledError:
+                return
+            messages = global_message_buffer.get_messages_since(cursor)
+        if self.request.connection.stream.closed():
+            return
+        self.write(dict(messages=messages))
+
+    def on_connection_close(self):
+        self.wait_future.cancel()
+
 
 def main():
-    tornado.options.parse_command_line()
-    application = Application()
-    http_server = tornado.httpserver.HTTPServer(application)
-    http_server.listen(options.port)
+    parse_command_line()
+    app = tornado.web.Application(
+        [
+            (r"/", MainHandler),
+            (r"/a/message/new", MessageNewHandler),
+            (r"/a/message/updates", MessageUpdatesHandler),
+        ],
+        cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+        template_path=os.path.join(os.path.dirname(__file__), "templates"),
+        static_path=os.path.join(os.path.dirname(__file__), "static"),
+        xsrf_cookies=True,
+        debug=options.debug,
+    )
+    app.listen(options.port)
     tornado.ioloop.IOLoop.current().start()
 
+
 if __name__ == "__main__":
-    busy = False
     main()
