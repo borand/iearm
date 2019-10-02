@@ -61,14 +61,25 @@ $(document).ready(function() {
 
     $('#throttle-stick').joystick({
 		//xAxis: false,
-		moveEvent: function(pos) { console.log('throttle:' + pos.y) },
+		moveEvent: function(pos) {
+            var data = {"id" : 'L2', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            var data = {"id" : 'L1', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+        },
 		endEvent: function(pos) { console.log('throttle:' + pos.y) }
 	});
 	$('#yaw-stick').joystick({
-		yAxis: false,
-		xSnap: true,
-		moveEvent: function(pos) { console.log('yaw:' + pos.x) },
-		endEvent: function(pos) { console.log('yaw:' + pos.x) }
+		//yAxis: false,
+        xSnap: true,        
+		moveEvent: function(pos) { 
+            var data = {"id" : 'L4', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            var data = {"id" : 'L3', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            console.log('yaw:' + pos);
+        },
+		endEvent: function(pos) { console.log(pos) }
     });
     $('#r-stick').joystick({
 		yAxis: false,
@@ -76,14 +87,8 @@ $(document).ready(function() {
 		moveEvent: function(pos) { console.log('yaw:' + pos.x) },
 		endEvent: function(pos) { console.log('yaw:' + pos.x) }
     });
+
     
-    
-	
-	$('#throttle-stick').joystick('value', 0.5, 0);
-	$('#yaw-stick').joystick('value', 1, 0.5);
-	
-	var y = $('#throttle-stick').joystick('value').y;
-	console.log(y);
 });
 
 function newMessage(form) {

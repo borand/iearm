@@ -478,6 +478,7 @@ class Controller:
             self.set_target(chan, minmax[0])
             time.sleep(pause)
             self.set_target(chan, minmax[1])
+            time.sleep(pause)
         
 
     

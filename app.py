@@ -153,7 +153,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 def main():
     tornado.options.parse_command_line()
     app = Application()
-    app.listen(options.port)
+    app.listen(options.port, address='0.0.0.0')
     tornado.ioloop.IOLoop.current().start()
 
 
