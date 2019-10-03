@@ -53,6 +53,10 @@
       </form>
     </div> -->
   </div>
+
+  <input type="number" class="arm_param" id="set_speed" value="100" pattern="\d+">  
+  <br>
+
   <hr>
   <table style="width:60%">
     <tr>
@@ -97,23 +101,58 @@
   <table>
     <tr>
       <td>
-        <div>Throttle</div>
-        <div class="joystick" id="throttle-stick">
+        LEFT
+      </td>
+      <td></td>
+      <td></td>
+      <td>
+          RIGHT
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <div>Arm - Forearm</div>
+        <div class="joystick" id="arm_forearm_l">
           <div class="handle"></div>
         </div>
         </dt>
       <td>
-        <div>R</div>
-        <div class="joystick" id="yaw-stick">
+        <div>Wrist - Hand</div>
+        <div class="joystick" id="wrist_forearm_l">
           <div class="handle"></div>
         </div>
       </td>
       <td>
-        <div>L</div>
-        <div class="joystick" id="r-stick">
+          <div>Arm - Forearm</div>
+          <div class="joystick" id="arm_forearm_r">
+            <div class="handle"></div>
+          </div>
+          </dt>
+        <td>
+          <div>Wrist - Hand</div>
+          <div class="joystick" id="wrist_forearm_r">
+            <div class="handle"></div>
+          </div>
+        </td>
+    
+    </tr>
+    
+    <tr>
+      <td>
+        <div>Base</div>
+        <div class="joystick" id="base_l">
           <div class="handle"></div>
         </div>
       </td>
+      <td></td>
+      <td></td>
+      <td>
+        <div>Base</div>
+        <div class="joystick" id="base_r">
+          <div class="handle"></div>
+        </div>
+      </td>
+    </tr>
   </table>
 
 </body>

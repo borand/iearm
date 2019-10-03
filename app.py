@@ -35,6 +35,7 @@ from tornado.options import define, options
 define("port", default=8000, help="run on the given port", type=int)
 
 arm_l = maestro.Controller('/dev/ttyACM0')
+arm_r = maestro.Controller('/dev/ttyACM2')
 pwm_vector = {"target_pwm_l": [], "target_pwm_r": []}
 
 
@@ -50,7 +51,10 @@ class Arms():
 
 class Application(tornado.web.Application):
     def __init__(self):
-        handlers = [(r"/", MainHandler), (r"/chatsocket", ChatSocketHandler)]
+        handlers = [(r"/", MainHandler), 
+        (r"/chatsocket", ChatSocketHandler),
+        (r"/api/(\w+)/(.*)", ApiHandler),
+        ]
         settings = dict(
             cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
@@ -64,6 +68,39 @@ class Application(tornado.web.Application):
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
         self.render("index.html", messages=ChatSocketHandler.cache)
+
+class ApiHandler(tornado.web.RequestHandler):
+
+    def get(self, *arg):
+        
+        try:
+            cmd_args = json.loads(arg[1])
+
+            if "set_speed" in arg[0]:
+                for (chan, val) in enumerate(cmd_args):
+                    print("chan:{}, val:{}".format(chan, val))
+                    arm_l.set_speed(chan, val)
+                ret_msg = 'done'
+        except:
+            ret_msg = 'error'
+        self.write(ret_msg)
+
+    def put(self, *arg, **kwargs):
+        print("put")
+        self.write('{"is_active": "false"}')
+
+    def post(self, *arg, **kwargs):
+        print("post ----------------------------------------------")
+        print(self.request)
+        body = self.request.body.decode("utf-8")
+        try:
+            out = json.loads(body)
+            dev[out["dev"]] = out["active"]
+        except:
+            out = 'could not decode'
+        print("body = {}, type = {}, json = {}".format(body, type(body), out))
+
+        self.write('{"is_active": "true"}')
 
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
@@ -138,6 +175,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 arm_l.set_target(chan, pwm)
             if "R" in parsed['id'][0]:
                 logging.info("moving right arm {}".format(int(parsed["body"])))
+                arm_r.set_target(chan, pwm)
 
         else:
             # parsed = tornado.escape.json_decode(message)
@@ -147,7 +185,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             # )
 
             # ChatSocketHandler.update_cache(chat)
-            ChatSocketHandler.send_updates(chat)
+            #ChatSocketHandler.send_updates(chat)
+            pass
 
 
 def main():

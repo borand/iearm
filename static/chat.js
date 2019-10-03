@@ -16,18 +16,18 @@ $(document).ready(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
 
-    $("#messageform").on("submit", function() {
-        newMessage($(this));
-        return false;
-    });
-    $("#messageform").on("keypress", function(e) {
-        if (e.keyCode == 13) {
-            newMessage($(this));
-            return false;
-        }
-    });
-    $("#message").select();
     updater.start();
+
+    $(".arm_param").change(function(){
+        var element_id = $(this).attr("id");
+        var elemtn_val = parseInt($(this).val());
+        var json_val = JSON.stringify([elemtn_val, elemtn_val, elemtn_val, elemtn_val, elemtn_val, elemtn_val])
+        var api_url = "api/"+ element_id + "/"+json_val;
+        console.log("id: " + element_id + "  val: " + elemtn_val)
+        $.get( "api/"+element_id+"/"+json_val, function( data ) {
+            console.log(data);
+        });
+    })
 
     $(".slider").change(function () {
         var element_id = $(this).attr("id").substring(3, 5)
@@ -58,8 +58,8 @@ $(document).ready(function() {
 
     });
 
-
-    $('#throttle-stick').joystick({
+    //========================================================================================
+    $('#arm_forearm_l').joystick({
 		//xAxis: false,
 		moveEvent: function(pos) {
             var data = {"id" : 'L2', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
@@ -69,9 +69,9 @@ $(document).ready(function() {
         },
 		endEvent: function(pos) { console.log('throttle:' + pos.y) }
 	});
-	$('#yaw-stick').joystick({
+	$('#wrist_forearm_l').joystick({
 		//yAxis: false,
-        xSnap: true,        
+        //xSnap: true,        
 		moveEvent: function(pos) { 
             var data = {"id" : 'L4', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
@@ -81,10 +81,45 @@ $(document).ready(function() {
         },
 		endEvent: function(pos) { console.log(pos) }
     });
-    $('#r-stick').joystick({
-		yAxis: false,
-		xSnap: true,
-		moveEvent: function(pos) { console.log('yaw:' + pos.x) },
+    $('#base_l').joystick({
+		xAxis: false,
+		ySnap: true,
+		moveEvent: function(pos) { 
+            var data = {"id" : 'L5', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            console.log('yaw:' + pos.x) },
+		endEvent: function(pos) { console.log('yaw:' + pos.x) }
+    });
+    //========================================================================================
+    $('#arm_forearm_r').joystick({
+		//xAxis: false,
+		moveEvent: function(pos) {
+            var data = {"id" : 'R2', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            var data = {"id" : 'R1', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+        },
+		endEvent: function(pos) { console.log('throttle:' + pos.y) }
+	});
+	$('#wrist_forearm_r').joystick({
+		//yAxis: false,
+        //xSnap: true,        
+		moveEvent: function(pos) { 
+            var data = {"id" : 'R4', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            var data = {"id" : 'R3', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            console.log('yaw:' + pos);
+        },
+		endEvent: function(pos) { console.log(pos) }
+    });
+    $('#base_r').joystick({
+		xAxis: false,
+		ySnap: true,
+		moveEvent: function(pos) { 
+            var data = {"id" : 'R5', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            console.log('yaw:' + pos.x) },
 		endEvent: function(pos) { console.log('yaw:' + pos.x) }
     });
 
