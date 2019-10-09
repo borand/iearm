@@ -48,6 +48,9 @@ DEFAULT_CONFIG = {
     'cal' : [[2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180]],
     'speed': [1000, 1000, 1000, 1000, 1000, 1000],
     'accel': [1000, 1000, 1000, 1000, 1000, 1000],
+    'last_position' : [],
+    'last_speed': [],
+    'timeout': 1,
     'delay_adjust' : 1,
     'num_of_channels' : 6
 }
@@ -105,7 +108,7 @@ class Controller:
     ports, or you are using a Windows OS, you can provide the tty port.  For
     example, '/dev/ttyACM2' or for Windows, something like 'COM3'.
     """
-    def __init__(self, tty_str='/dev/ttyACM0', device=0x0c):
+    def __init__(self, tty_str='/dev/ttyACM0', device=0x0c,config_file="maestro.json"):
 
         self.tty_str = tty_str
         self.tty_port_exists = False
@@ -113,9 +116,11 @@ class Controller:
         # Command lead-in and device number are sent for each Pololu serial command.
         self.timeout = 1
         self.last_cmd_send = ''
+        self.config_file = config_file
         self.pololu_cmd = chr(0xaa) + chr(device)
         self.last_exception = ''
         self.last_set_target_vector = []
+        self.last_speed = []
 
         # Track target position for each servo. The function is_moving() will
         # use the Target vs Current servo position to determine if movement is
@@ -140,12 +145,13 @@ class Controller:
     def establish_connection(self):
         logger.debug("Attempting to establish connection with: {}".format(self.tty_str))
         try:
+            logger.info("Load config fule: {}".format(self.config_file))
+            self.config = load_config_file(self.config_file)
+
             if os.path.exists(self.tty_str):
                 logger.debug("Found {} on the path".format(self.tty_str))
                 self.usb = serial.Serial(self.tty_str, timeout=1)
                 self.tty_port_exists = True
-                
-                self.config = load_config_file()
                 self.last_set_target_vector = self.get_all_positions()
                 
                 # Set speed of all channels from the config file
@@ -159,8 +165,10 @@ class Controller:
             self.last_exception = e
             logger.error("Cannot connect to the controller. last_exception = {}".format(e))
     
-    def reload_default_config(self, filename="maestro.json"):
-        self.config = load_config_file()
+    def reload_default_config(self, filename=""):
+        if len(filename) == 0:
+            filename = self.config_file
+        self.config = load_config_file(filename)
     
     def save_config_file(self, fileanme="last_maestro_config.json"):
         """
@@ -181,7 +189,7 @@ class Controller:
     def send(self, cmd):
         """ Send a Pololu command out the serial port """ 
         self.last_cmd_send = cmd        
-        if self.establish_connection:
+        if self.tty_port_connection_established:
             cmd_str = self.pololu_cmd + cmd
             if PY2:
                 out = self.usb.write(cmd_str)
@@ -218,22 +226,20 @@ class Controller:
         which has precedence over these values.  Use the Maestro Control Center to configure
         ranges that are saved to the controller.  Use set_range for software controllable ranges.
         """
-        logger.warning("This function will be removed - do not use in future code")
-        if chan >=0 and chan <=24:
-            self.Mins[chan] = min
-            self.Maxs[chan] = max
+       
+        if chan >=0 and chan < self.config['num_of_channels']:
+            self.config['min'][chan] = min
+            self.config['max'][chan] = max          
         else:
             logger.error("Specified channel is out of range")
     
     def get_min(self, chan):
-        """ Return Minimum channel range value"""
-        logger.warning("This function will be removed - do not use in future code")
-        return self.Mins[chan]
+        """ Return Minimum channel range value"""        
+        return self.config['min'][chan]
 
     def get_max(self, chan):
-        """ Return Maximum channel range value """
-        logger.warning("This function will be removed - do not use in future code")
-        return self.Maxs[chan]
+        """ Return Maximum channel range value """       
+        return self.config['max'][chan]
 
     def set_target(self, chan: object, target: object) -> object:
         """
@@ -245,7 +251,9 @@ class Controller:
         Typcially valid servo range is 3000 to 9000 quarter-microseconds
         If channel is configured for digital output, values < 6000 = Low ouput
         """
+        
         self.target_positions[chan] = target
+        self.config['last_position'][chan] = target
         target = round(target * 4)
         # if Min is defined and Target is below, force to Min
         if self.Mins[chan] > 0 and target < self.Mins[chan]:
@@ -261,7 +269,7 @@ class Controller:
         self.send(cmd)
         # Record Target value
 
-    def set_target_vector(self, target_vector, match_speed=1):
+    def set_target_vector(self, target_vector, match_speed=1, wait=True):
         
         initial_speed = copy.copy(self.config["speed"])
         for chan, pos in enumerate(target_vector):
@@ -278,10 +286,11 @@ class Controller:
 
         logger.debug("set_target_vector pause time: {}".format(pause_sec))
 
-        time.sleep(pause_sec)
-        if match_speed:
-            for chan, speed in enumerate(initial_speed):
-                self.set_speed(chan, speed)
+        if wait:
+            time.sleep(pause_sec)
+            if match_speed:
+                for chan, speed in enumerate(initial_speed):
+                    self.set_speed(chan, speed)
 
 
         self.last_set_target_vector = target_vector
@@ -458,7 +467,6 @@ class Controller:
         else:
             new_speeds = self.config["speed"]
         return new_speeds
-
 
     def get_slowest_movement_time(self, new_vector):
         
