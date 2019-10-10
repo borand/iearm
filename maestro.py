@@ -48,8 +48,9 @@ DEFAULT_CONFIG = {
     'cal' : [[2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [2500, 900, 180], [3500,1600, 180]],
     'speed': [1000, 1000, 1000, 1000, 1000, 1000],
     'accel': [1000, 1000, 1000, 1000, 1000, 1000],
-    'last_position' : [],
-    'last_speed': [],
+    'target_position' : [0,0,0,0,0,0],
+    'last_position' : [-1,-1,-1,-1,-1,-1],
+    'last_speed': [-1,-1,-1,-1,-1,-1],
     'timeout': 1,
     'delay_adjust' : 1,
     'num_of_channels' : 6
@@ -125,10 +126,10 @@ class Controller:
         # Track target position for each servo. The function is_moving() will
         # use the Target vs Current servo position to determine if movement is
         # occuring.  Upto 24 servos on a Maestro, (0-23). target_positions start at 0.
-        self.target_positions = [0] * 24
+        # self.target_positions = [0] * 24
         # Servo minimum and maximum targets can be restricted to protect components.
-        self.Mins = [0] * 24
-        self.Maxs = [0] * 24
+        # self.Mins = [0] * 24
+        # self.Maxs = [0] * 24
         
         logger.info("Controller(tty_str={}, device={})".format(self.tty_str, device))
 
@@ -140,7 +141,7 @@ class Controller:
             logger.info("Connection established")
 
     def __del__(self):
-        self.save_config_file()
+        self.save_config_file(fileanme=self.config_file)
 
     def establish_connection(self):
         logger.debug("Attempting to establish connection with: {}".format(self.tty_str))
@@ -252,17 +253,19 @@ class Controller:
         If channel is configured for digital output, values < 6000 = Low ouput
         """
         
-        self.target_positions[chan] = target
-        self.config['last_position'][chan] = target
-        target = round(target * 4)
+        # self.target_positions[chan] = target
+
+
         # if Min is defined and Target is below, force to Min
-        if self.Mins[chan] > 0 and target < self.Mins[chan]:
-            target = self.Mins[chan]
-        
+        if self.config['min'][chan] > 0 and target < self.config['min'][chan]:
+            target = self.config['min'][chan]
+
         # if Max is defined and Target is above, force to Max
-        if self.Maxs[chan] > 0 and target > self.Maxs[chan]:
-            target = self.Maxs[chan]
-        
+        if self.config['max'][chan] > 0 and target > self.config['max'][chan]:
+            target = self.config['max'][chan]
+
+        self.config['target_position'][chan] = target
+        target = round(target * 4)
         lsb = target & 0x7f  # 7 bits for least significant byte
         msb = (target >> 7) & 0x7f  # shift 7 and take next 7 bits for msb
         cmd = chr(0x04) + chr(chan) + chr(lsb) + chr(msb)
@@ -272,6 +275,7 @@ class Controller:
     def set_target_vector(self, target_vector, match_speed=1, wait=True):
         
         initial_speed = copy.copy(self.config["speed"])
+        self.config['last_speed'] = initial_speed
         for chan, pos in enumerate(target_vector):
             if pos >=0 or pos <= 360:
                 pos = ang_2_pwm(pos, self.config["cal"][chan])
@@ -280,23 +284,16 @@ class Controller:
         pause_sec = self.get_slowest_movement_time(target_vector)
         if match_speed:            
             new_speeds = self.match_movement_speed(target_vector)
-            for chan, speed in enumerate(new_speeds):
-                if speed > 0:
-                    self.set_speed(chan, speed)
-
-        logger.debug("set_target_vector pause time: {}".format(pause_sec))
+            self.set_speed_vector(new_speeds)
 
         if wait:
+            logger.debug("set_target_vector pause time: {}".format(pause_sec))
             time.sleep(pause_sec)
             if match_speed:
-                for chan, speed in enumerate(initial_speed):
-                    self.set_speed(chan, speed)
+                self.set_speed_vector(initial_speed)
 
+        self.config['last_position'] = target_vector
 
-        self.last_set_target_vector = target_vector
-        # timeout = 5
-        # while self.getMovingState(): #and time.time() - to < timeout:
-        #     pass
 
     def go_home(self):
         self.set_target_vector(self.config['home'])
@@ -330,6 +327,10 @@ class Controller:
         self.send(cmd)
         self.config['speed'][chan] = speed
 
+    def set_speed_vector(self, speed_vector):
+        for chan, speed in enumerate(speed_vector):
+            self.set_speed(chan, speed)
+
     def set_accel(self, chan, accel):
         """
         Set acceleration of channel
@@ -337,9 +338,15 @@ class Controller:
         Valid values are from 0 to 255. 0=unrestricted, 1 is slowest start.
         A value of 1 will take the servo about 3s to move between 1ms to 2ms range.
         """
+        if accel <=0:
+            accel = 0
+        if accel >= 255:
+            accel = 255
+
         lsb = accel & 0x7f  # 7 bits for least significant byte
         msb = (accel >> 7) & 0x7f  # shift 7 and take next 7 bits for msb
         cmd = chr(0x09) + chr(chan) + chr(lsb) + chr(msb)
+        self.config['accel'][chan] = accel
         self.send(cmd)
 
     def get_position(self, chan):
@@ -364,7 +371,7 @@ class Controller:
                     msb = ord(self.usb.read())
                     return ((msb << 8) + lsb) / 4
             if time.time() - start_time > self.timeout:
-                print('read timed out')
+                logger.error('Timeout during reading position')
         
         return response
 
@@ -381,8 +388,8 @@ class Controller:
         channel, then the target can never be reached, so it will appear to always be
         moving to the target.
         """
-        if self.target_positions[chan] > 0:
-            if abs(self.get_position(chan) - self.target_positions[chan]) > 10:
+        if self.config['target_positions'][chan] > 0:
+            if abs(self.get_position(chan) - self.config['target_positions']) > 10:
                 return 1
         return 0
     
@@ -424,7 +431,7 @@ class Controller:
         Determine maximum displace angle between current and the new position.    
         '''
         max_pwm = max(self.get_pwm_delta(new_vector))
-        old_vector = self.last_set_target_vector
+        old_vector = self.config['last_position']
         logger.debug("old: {}, new: {}, max angle: {}".format(old_vector, new_vector, max_pwm))
         return max_pwm
 
@@ -432,7 +439,7 @@ class Controller:
         '''
         Determine displace pwm between current and the new position.
         '''
-        old_vector = self.last_set_target_vector
+        old_vector = self.config['last_position']
         if len(new_vector) != len(old_vector):
             raise NameError("Input and output vectors must be the same length.")
         else:
@@ -470,7 +477,7 @@ class Controller:
 
     def get_slowest_movement_time(self, new_vector):
         
-        old_vector = self.last_set_target_vector
+        old_vector = self.config['last_position']
         speed = self.config['speed']
 
         speed_us_per_ms = [ 0.25 * v / 10.0 for v in speed]
@@ -481,6 +488,7 @@ class Controller:
         return max([slowest_movement_at_speed, slowest_movement_at_speed_0])
 
     def chop(self, chan, minmax, num, pause):
+        logger.debug("chop({}, {}, {}, {})".format(chan, minmax, num, pause))
         while num:
             num = num - 1
             self.set_target(chan, minmax[0])
