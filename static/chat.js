@@ -85,7 +85,7 @@ $(document).ready(function() {
 		xAxis: false,
 		ySnap: true,
 		moveEvent: function(pos) { 
-            var data = {"id" : 'L5', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            var data = {"id" : 'L5', "body" : 2465 - Math.round(2000*pos.y), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
             console.log('yaw:' + pos.x) },
 		endEvent: function(pos) { console.log('yaw:' + pos.x) }
@@ -117,7 +117,7 @@ $(document).ready(function() {
 		xAxis: false,
 		ySnap: true,
 		moveEvent: function(pos) { 
-            var data = {"id" : 'R5', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            var data = {"id" : 'R5', "body" : 1900 + Math.round(500*pos.y), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
             console.log('yaw:' + pos.x) },
 		endEvent: function(pos) { console.log('yaw:' + pos.x) }
