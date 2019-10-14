@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 #
 # Copyright 2009 Facebook
 #
@@ -13,114 +13,106 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations
 # under the License.
+"""Simplified chat demo for websockets.
 
-import asyncio
+Authentication, error handling, etc are left as an exercise for the reader :)
+"""
+
+import logging
 import tornado.escape
 import tornado.ioloop
-import tornado.locks
+import tornado.options
 import tornado.web
+import tornado.websocket
 import os.path
 import uuid
-
-from tornado.options import define, options, parse_command_line
-
-define("port", default=8000, help="run on the given port", type=int)
-define("debug", default=True, help="run in debug mode")
+import json
+import maestro
 
 
-class MessageBuffer(object):
+from tornado.options import define, options
+
+define("port", default=8888, help="run on the given port", type=int)
+
+robot_config = [maestro.load_config_file("ArmL.json"), maestro.load_config_file("ArmR.json")]
+
+class Application(tornado.web.Application):
     def __init__(self):
-        # cond is notified whenever the message cache is updated
-        self.cond = tornado.locks.Condition()
-        self.cache = []
-        self.cache_size = 200
-
-    def get_messages_since(self, cursor):
-        """Returns a list of messages newer than the given cursor.
-
-        ``cursor`` should be the ``id`` of the last message received.
-        """
-        results = []
-        for msg in reversed(self.cache):
-            if msg["id"] == cursor:
-                break
-            results.append(msg)
-        results.reverse()
-        return results
-
-    def add_message(self, message):
-        self.cache.append(message)
-        if len(self.cache) > self.cache_size:
-            self.cache = self.cache[-self.cache_size :]
-        self.cond.notify_all()
-
-
-# Making this a non-singleton is left as an exercise for the reader.
-global_message_buffer = MessageBuffer()
+        handlers = [(r"/", MainHandler), (r"/ws", WsHandler)]
+        settings = dict(
+            cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
+            template_path=os.path.join(os.path.dirname(__file__), "templates"),
+            static_path=os.path.join(os.path.dirname(__file__), "static"),
+            xsrf_cookies=True,
+            debug=True,
+        )
+        super(Application, self).__init__(handlers, **settings)
 
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render("index.html", messages=global_message_buffer.cache)
+        logging.info("Serving main.html")
+        self.render("main.html", messages=WsHandler.cache)
 
 
-class MessageNewHandler(tornado.web.RequestHandler):
-    """Post a new message to the chat room."""
+class WsHandler(tornado.websocket.WebSocketHandler):
+    waiters = set()
+    cache = []
+    cache_size = 200
 
-    def post(self):
-        message = {"id": str(uuid.uuid4()), "body": self.get_argument("body")}
-        # render_string() returns a byte string, which is not supported
-        # in json, so we must convert it to a character string.
-        message["html"] = tornado.escape.to_unicode(
-            self.render_string("message.html", message=message)
-        )
-        if self.get_argument("next", None):
-            self.redirect(self.get_argument("next"))
-        else:
-            self.write(message)
-        global_message_buffer.add_message(message)
+    def get_compression_options(self):
+        # Non-None enables compression with default options.
+        return {}
 
+    def open(self):
+        logging.debug("WsHandler.open():}")
+        WsHandler.waiters.add(self)
+        try:
+            logging.debug("Attempting to send initialization data over WS")
+            self.write_message("Sending initial config")
+            self.write_message(tornado.escape.json_encode(robot_config))
+        except:
+            logging.error("Could not send initializaiton data over WS")
+        
+    def on_close(self):
+        logging.info("WsHandler.on_close(): {}}".format(self))
+        WsHandler.waiters.remove(self)
 
-class MessageUpdatesHandler(tornado.web.RequestHandler):
-    """Long-polling request for new messages.
+    @classmethod
+    def update_cache(cls, chat):
+        logging.info("WsHandler.update_cache: chat: {}".format(chat))
+        # cls.cache.append(chat)
+        # if len(cls.cache) > cls.cache_size:
+        #     cls.cache = cls.cache[-cls.cache_size :]
 
-    Waits until new messages are available before returning anything.
-    """
-
-    async def post(self):
-        cursor = self.get_argument("cursor", None)
-        messages = global_message_buffer.get_messages_since(cursor)
-        while not messages:
-            # Save the Future returned here so we can cancel it in
-            # on_connection_close.
-            self.wait_future = global_message_buffer.cond.wait()
+    @classmethod
+    def send_updates(cls, chat):
+        logging.info("WsHandler.sending message to %d waiters", len(cls.waiters))
+        for waiter in cls.waiters:
             try:
-                await self.wait_future
-            except asyncio.CancelledError:
-                return
-            messages = global_message_buffer.get_messages_since(cursor)
-        if self.request.connection.stream.closed():
-            return
-        self.write(dict(messages=messages))
+                waiter.write_message(chat)
+            except tornado.websocket.WebSocketClosedError:
+                logging.warning("Websocket already closed")
+            except:
+                logging.error("Error sending message", exc_info=True)
 
-    def on_connection_close(self):
-        self.wait_future.cancel()
+    def on_message(self, message):
+        logging.info("got message %r", message)
+        try:
+            parsed = tornado.escape.json_decode(message)
+            chat = {"id": str(uuid.uuid4()), "body": tornado.escape.json_encode(parsed)}
+        
+        except Exception as e:
+            # cannot decode
+            error_msg = {'exception': "{}".format(e)}
+            chat = {"id": str(uuid.uuid4()), "body":  tornado.escape.json_encode(error_msg)}
 
+        WsHandler.update_cache(chat)
+        WsHandler.send_updates(chat)
 
 def main():
-    parse_command_line()
-    app = tornado.web.Application(
-        [
-            (r"/", MainHandler),
-            (r"/a/message/new", MessageNewHandler),
-            (r"/a/message/updates", MessageUpdatesHandler),
-        ],
-        cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
-        template_path=os.path.join(os.path.dirname(__file__), "templates"),
-        static_path=os.path.join(os.path.dirname(__file__), "static"),
-        xsrf_cookies=True,
-        debug=options.debug,
-    )
+    tornado.options.parse_command_line()
+    app = Application()
     app.listen(options.port)
     tornado.ioloop.IOLoop.current().start()
 

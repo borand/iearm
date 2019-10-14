@@ -1,12 +1,18 @@
+<!DOCTYPE html>
 <html>
-   <head>
-      <title>{{ title }}</title>
-   </head>
-   <body>
-     <ul>
-       {% for item in items %}
-         <li>{{ escape(item) }}</li>
-       {% end %}
-     </ul>
-   </body>
- </html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Tornado Chat Demo</title>
+    <link rel="stylesheet" href="{{ static_url("ui.css") }}" type="text/css">
+    <script src="{{ static_url("jquery.js") }}" type="text/javascript"></script>
+    <script src="{{ static_url("ui.js")     }}" type="text/javascript"></script>
+    <script src="{{ static_url("joy.js")    }}" type="text/javascript"></script>
+  </head>
+  
+  <body>
+      <div class="joystick" id="servo1">
+          <div class="handle"></div>
+        </div>
+  </body>
+
+</html>
