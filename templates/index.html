@@ -4,8 +4,11 @@
 <head>
   <meta charset="UTF-8">
   <script src="static/jquery.js" type="text/javascript"></script>
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
   <script src="{{ static_url("chat.js") }}" type="text/javascript"></script>
-  <title>Tornado Chat Demo</title>
+  <title>ArmLogic Control</title>
   <!--    <link rel="stylesheet" href="{{ static_url("chat.css") }}" type="text/css">-->
 
   <script src="static/joy.js"></script>
@@ -13,15 +16,15 @@
   <style type="text/css">
     .joystick {
       position: relative;
-      width: 150px;
-      height: 150px;
+      width: 250px;
+      height: 250px;
       background-color: #eee;
     }
 
     .joystick .handle {
       position: absolute;
-      width: 30px;
-      height: 30px;
+      width: 50px;
+      height: 50px;
       background-color: rgb(201, 44, 44);
       border: 1px solid rgb(107, 35, 35);
       border-radius: 15px;
@@ -31,34 +34,72 @@
 </head>
 
 <body>
-  <p>Slider</p>
-  <div id="body">
-    <div id="inbox">
-      {% for message in messages %}
-      {% include "message.html" %}
-      {% end %}
-    </div>
-    <!-- <div id="input">
-      <form action="/a/message/new" method="post" id="messageform">
-        <table>
-          <tr>
-            <td><input type="text" name="body" id="message" style="width:500px"></td>
-            <td style="padding-left:5px">
-              <input type="submit" value="{{ _("Post") }}">
-              <input type="hidden" name="next" value="{{ request.path }}">
-              {% module xsrf_form_html() %}
-            </td>
-          </tr>
-        </table>
-      </form>
-    </div> -->
-  </div>
+  <div id"page">
+  
+  <table border="1">
+    <tr>
+      <td>
+        LEFT
+      </td>
+      <td></td>
+      <td></td>
+      <td>
+          RIGHT
+      </td>
+    </tr>
+    <tr>
+      <td>
+        <div>Arm - Forearm</div>
+        <div class="joystick" id="arm_forearm_l">
+          <div class="handle"></div>
+        </div>
+      </td>
+      <td>
+        <div>Wrist - Hand</div>
+        <div class="joystick" id="wrist_forearm_l">
+          <div class="handle"></div>
+        </div>
+      </td>
+      <td>
+          <div>Arm - Forearm</div>
+          <div class="joystick" id="arm_forearm_r">
+            <div class="handle"></div>
+          </div>
+        </td>
+        <td>
+          <div>Wrist - Hand</div>
+          <div class="joystick" id="wrist_forearm_r">
+            <div class="handle"></div>
+          </div>
+        </td>
+    
+    </tr>
+    
+    <tr>
+      <td>
+        <div>Base</div>
+        <div class="joystick" id="base_l">
+          <div class="handle"></div>
+        </div>
+      </td>
+      <td></td>
+      <td></td>
+      <td>
+        <div>Base</div>
+        <div class="joystick" id="base_r">
+          <div class="handle"></div>
+        </div>
+      </td>
+    </tr>
+  </table>
 
+  
+  <hr>
   <input type="number" class="arm_param" id="set_speed" value="100" pattern="\d+">  
   <br>
 
   <hr>
-  <table style="width:60%">
+  <table style="width:100%">
     <tr>
       <td>Left Arm</td>
       <td>Left Val</td>
@@ -97,64 +138,7 @@
   <input type="button" value="Load to file" class="cmd_button"><br>
 
   <hr>
-
-  <table>
-    <tr>
-      <td>
-        LEFT
-      </td>
-      <td></td>
-      <td></td>
-      <td>
-          RIGHT
-      </td>
-    </tr>
-    <tr>
-      <td>
-        <div>Arm - Forearm</div>
-        <div class="joystick" id="arm_forearm_l">
-          <div class="handle"></div>
-        </div>
-      </td>
-      <td>
-        <div>Wrist - Hand</div>
-        <div class="joystick" id="wrist_forearm_l">
-          <div class="handle"></div>
-        </div>
-      </td>
-      <td>
-          <div>Arm - Forearm</div>
-          <div class="joystick" id="arm_forearm_r">
-            <div class="handle"></div>
-          </div>
-          </dt>
-        <td>
-          <div>Wrist - Hand</div>
-          <div class="joystick" id="wrist_forearm_r">
-            <div class="handle"></div>
-          </div>
-        </td>
-    
-    </tr>
-    
-    <tr>
-      <td>
-        <div>Base</div>
-        <div class="joystick" id="base_l">
-          <div class="handle"></div>
-        </div>
-      </td>
-      <td></td>
-      <td></td>
-      <td>
-        <div>Base</div>
-        <div class="joystick" id="base_r">
-          <div class="handle"></div>
-        </div>
-      </td>
-    </tr>
-  </table>
-
+</div>
 </body>
 
 </html>
