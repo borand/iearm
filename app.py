@@ -34,8 +34,8 @@ from tornado.options import define, options
 
 define("port", default=8000, help="run on the given port", type=int)
 
-arm_l = maestro.Controller('/dev/ttyACM0')
-arm_r = maestro.Controller('/dev/ttyACM2')
+arm_l = maestro.Controller('/dev/ttyACM0',config_file="ArmL.json")
+arm_r = maestro.Controller('/dev/ttyACM2',config_file="ArmR.json")
 pwm_vector = {"target_pwm_l": [], "target_pwm_r": []}
 
 
@@ -139,8 +139,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         if "button" in message:
             parsed = tornado.escape.json_decode(message)
             if "Save Frame" in parsed['cmd']:
-                pwm_vector['target_pwm_l'].append(parsed['body']['target_pwm_l'])
-                pwm_vector['target_pwm_r'].append(parsed['body']['target_pwm_r'])
+                pwm_vector['target_pwm_l'].append(arm_l.get_all_positions())
+                pwm_vector['target_pwm_r'].append(arm_r.get_all_positions())
                 print(pwm_vector)
 
             if "Play Sequence" in parsed['cmd']:
