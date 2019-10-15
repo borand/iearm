@@ -12,32 +12,7 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
-$(document).ready(function() {
-    if (!window.console) window.console = {};
-    if (!window.console.log) window.console.log = function() {};
-
-    $("#controlform").on("submit", function() {
-        newMessage($(this));
-        return false;
-    });
-
-    $("#controlform").on("keypress", function(e) {
-        if (e.keyCode == 13) {
-            newMessage($(this));
-            return false;
-        }
-    });
-    
-    $('#servo1').joystick({
-		//xAxis: false,
-		moveEvent: function(pos) {
-            console.log('joystick: (x,y) = (' + pos.x + ', ' + pos.y + ')')
-        },
-		endEvent: function(pos) { console.log('joystick: (x,y) = (' + pos.x + ', ' + pos.y + ')') }
-    });
-    
-    updater.start();
-});
+var MyData = {};
 
 function newMessage(form) {
     //var message = form.formToDict();
@@ -69,7 +44,7 @@ var updater = {
         updater.socket = new WebSocket(url);
         updater.socket.onmessage = function(event) {
             //console.log(event)
-            updater.showMessage(event.data);
+            updater.wsMessage(event.data);
         }
 
     },
@@ -81,8 +56,67 @@ var updater = {
         }
     },
 
-    showMessage: function(message) {
-        console.log(message)
-        //JSON.parse(message.data)
+    wsMessage: function(message) {
+        // console.log(message)
+        last_msg = message;
+
+        try{
+            var data = JSON.parse(message);
+            var obj_keys = Object.keys(data[0]);
+            var tab_keys = ["min", "max"]
+            // debugger
+            for (i = 0; i < obj_keys.length; i++) {
+                
+                if (tab_keys.includes(obj_keys[i]))
+                {
+                    // console.log(obj_keys[i]);
+                    var row_data = obj_keys[i]
+                    row_data = row_data.concat(data[0][obj_keys[i]]);
+                    console.log(row_data)
+                    //MyData.T.row.add(row_data).draw(false);
+                }
+            }   
+
+        } catch(err) {console.log("Failed ws JSON decode: " + err)}
+
+        
+        
+        // for (i = 0; i < obj_keys.length; i++) {
+        //     console.log(obj_keys[i]);
+        //     if ([data[0][obj_keys[i]] != 'cal'){
+            
+        //         T.row.add([
+        //             [data[0][obj_keys[i]]
+        //         ]
+        //         ).draw( false );
+        //   }
+        //}
+
     }
 };
+
+
+$(document).ready(function() {
+    if (!window.console) window.console = {};
+    if (!window.console.log) window.console.log = function() {};
+    var last_msg = {};
+    MyData.T = $('#myTable').DataTable({
+        "paging":   false,
+        "ordering": false,
+        "info":     false,
+        "dom": '<"top"><"bottom"><"clear">'
+    });
+
+    var joyconfig = {
+        xAxis: true,
+        yAxis: true,
+		moveEvent: function(pos) {
+            console.log('joystick: (x,y) = (' + pos.x + ', ' + pos.y + ')')
+        },
+		endEvent: function(pos) { console.log('joystick: (x,y) = (' + pos.x + ', ' + pos.y + ')') }
+    };
+
+    MyData.J1 = $('#j-1').joystick(joyconfig);
+    
+    updater.start();
+});

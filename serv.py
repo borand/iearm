@@ -70,7 +70,7 @@ class WsHandler(tornado.websocket.WebSocketHandler):
         WsHandler.waiters.add(self)
         try:
             logging.debug("Attempting to send initialization data over WS")
-            self.write_message("Sending initial config")
+            # self.write_message(tornado.escape.json_encode("Sending initial config"))
             self.write_message(tornado.escape.json_encode(robot_config))
         except:
             logging.error("Could not send initializaiton data over WS")
