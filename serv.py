@@ -36,6 +36,7 @@ define("port", default=8888, help="run on the given port", type=int)
 
 robot_config = [maestro.load_config_file("ArmL.json"), maestro.load_config_file("ArmR.json")]
 
+
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/", MainHandler), (r"/ws", WsHandler)]

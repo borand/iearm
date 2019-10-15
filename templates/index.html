@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8">
   <script src="static/jquery.js" type="text/javascript"></script>
-  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
-  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+<!--  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>-->
+<!--  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>-->
+<!--  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>-->
   <script src="{{ static_url("chat.js") }}" type="text/javascript"></script>
   <title>ArmLogic Control</title>
   <!--    <link rel="stylesheet" href="{{ static_url("chat.css") }}" type="text/css">-->
@@ -16,8 +16,8 @@
   <style type="text/css">
     .joystick {
       position: relative;
-      width: 250px;
-      height: 250px;
+      width: 200px;
+      height: 200px;
       background-color: #eee;
     }
 
@@ -42,6 +42,7 @@
         LEFT
       </td>
       <td></td>
+      <td><input type="button" value="Play Sequence" class="cmd_button"><br></td>
       <td></td>
       <td>
           RIGHT
@@ -60,15 +61,16 @@
           <div class="handle"></div>
         </div>
       </td>
-      <td>
-          <div>Arm - Forearm</div>
-          <div class="joystick" id="arm_forearm_r">
-            <div class="handle"></div>
-          </div>
-        </td>
+      <td><input type="button" value="Home" class="cmd_button"><br></td>
         <td>
           <div>Wrist - Hand</div>
           <div class="joystick" id="wrist_forearm_r">
+            <div class="handle"></div>
+          </div>
+        </td>
+            <td>
+          <div>Arm - Forearm</div>
+          <div class="joystick" id="arm_forearm_r">
             <div class="handle"></div>
           </div>
         </td>
@@ -83,6 +85,7 @@
         </div>
       </td>
       <td></td>
+      <td><input type="button" value="Save Frame" class="cmd_button"><br></td>
       <td></td>
       <td>
         <div>Base</div>
@@ -130,12 +133,15 @@
   </table>
 
   <hr>
-  <input type="button" value="Reset Sequence" class="cmd_button"><br>
-  <input type="button" value="Save Frame" class="cmd_button"><br>
-  <input type="button" value="Play Sequence" class="cmd_button"><br>
+
+
+
   <input type="button" value="Save to file" class="cmd_button"><input type="text" class="target_pwm" id="filename"
     value="new_sequence"><br>
   <input type="button" value="Load to file" class="cmd_button"><br>
+  <p></p>
+  <p></p>
+  <input type="button" value="Reset Sequence" class="cmd_button"><br>
 
   <hr>
 </div>

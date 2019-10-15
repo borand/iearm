@@ -482,7 +482,14 @@ class Controller:
 
         speed_us_per_ms = [ 0.25 * v / 10.0 for v in speed]
         delta_pwm_us = [abs(a-b) for a,b in zip(new_vector, old_vector)]
+
+        # check to make sure we will not be dividing by zero
+        for (chan, dt) in enumerate(delta_pwm_us):
+            if dt < 1e-4:
+                delta_pwm_us[chan] = 1e-3
+
         slowest_movement_at_speed =  self.config['delay_adjust'] * max([pwm / s for s, pwm in zip(speed_us_per_ms, delta_pwm_us)]) / 1000.0
+
         slowest_movement_at_speed_0 = self.calculate_movement_time(self.get_max_pwm(new_vector))
         logger.debug("slowest_movement_at_speed={}, slowest_movement_at_speed_0={}".format(slowest_movement_at_speed, slowest_movement_at_speed_0))
         return max([slowest_movement_at_speed, slowest_movement_at_speed_0])

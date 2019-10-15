@@ -73,9 +73,9 @@ $(document).ready(function() {
 		//yAxis: false,
         //xSnap: true,        
 		moveEvent: function(pos) { 
-            var data = {"id" : 'L4', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            var data = {"id" : 'L4', "body" : 500 + Math.round(2000*(pos.x)), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
-            var data = {"id" : 'L3', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            var data = {"id" : 'L3', "body" : 500 + Math.round(2000*(pos.y)), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
             console.log('yaw:' + pos);
         },
@@ -85,7 +85,7 @@ $(document).ready(function() {
 		xAxis: false,
 		ySnap: true,
 		moveEvent: function(pos) { 
-            var data = {"id" : 'L5', "body" : 2465 - Math.round(2000*pos.y), "cmd" : "move"};
+            var data = {"id" : 'L5', "body" : 2455 - Math.round(2000*pos.y), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
             console.log('yaw:' + pos.x) },
 		endEvent: function(pos) { console.log('yaw:' + pos.x) }
@@ -94,9 +94,9 @@ $(document).ready(function() {
     $('#arm_forearm_r').joystick({
 		//xAxis: false,
 		moveEvent: function(pos) {
-            var data = {"id" : 'R2', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            var data = {"id" : 'R2', "body" : 500 + Math.round(2000*(pos.x)), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
-            var data = {"id" : 'R1', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            var data = {"id" : 'R1', "body" : 500 + Math.round(2000*(1-pos.y)), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
         },
 		endEvent: function(pos) { console.log('throttle:' + pos.y) }
@@ -105,9 +105,9 @@ $(document).ready(function() {
 		//yAxis: false,
         //xSnap: true,        
 		moveEvent: function(pos) { 
-            var data = {"id" : 'R4', "body" : 500 + Math.round(2000*pos.x), "cmd" : "move"};
+            var data = {"id" : 'R4', "body" : 500 + Math.round(2000*(1-pos.x)), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
-            var data = {"id" : 'R3', "body" : 1500 + Math.round(2000*pos.y), "cmd" : "move"};
+            var data = {"id" : 'R3', "body" : 1500 + Math.round(2000*(1-pos.y)), "cmd" : "move"};
             updater.socket.send(JSON.stringify(data));
             console.log('yaw:' + pos);
         },
