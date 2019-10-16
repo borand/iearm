@@ -34,8 +34,8 @@ from tornado.options import define, options
 
 define("port", default=8000, help="run on the given port", type=int)
 
-arm_l = maestro.Controller('/dev/ttyACM0',config_file="ArmL.json")
-arm_r = maestro.Controller('/dev/ttyACM2',config_file="ArmR.json")
+arm_l = maestro.Controller('/dev/ttyACM0',config_file="ArmR.json")
+arm_r = maestro.Controller('/dev/ttyACM2',config_file="ArmL.json")
 pwm_vector = {"target_pwm_l": [], "target_pwm_r": []}
 
 
@@ -144,7 +144,12 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 print(pwm_vector)
 
             if "Play Sequence" in parsed['cmd']:
-                arm_l.run_sequency(pwm_vector['target_pwm_l'])
+                #arm_l.run_sequency(pwm_vector['target_pwm_l'])
+                #arm_r.run_sequency(pwm_vector['target_pwm_r'])
+                for (l,r) in zip(pwm_vector['target_pwm_l'], pwm_vector['target_pwm_r']):
+                    arm_l.set_target_vector(l, match_speed=1, wait=False)
+                    arm_r.set_target_vector(r, match_speed=1, wait=True)
+                    arm_l.set_speed_vector(arm_l.config['last_speed'])
 
             if "Reset Sequence" in parsed['cmd']:
                 pwm_vector['target_pwm_l'] = []
@@ -154,6 +159,10 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 filename = 'armlogic_sequency.json'
                 fid = open(filename, 'w')
                 fid.write(json.dumps(pwm_vector))
+
+            if "Home" in parsed['cmd']:
+                arm_l.go_home()
+                arm_r.go_home()
 
             if "Load to file" in parsed['cmd']:
                 filename = 'armlogic_sequency.json'
