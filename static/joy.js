@@ -4,6 +4,7 @@
 // http://learn.jquery.com/plugins/advanced-plugin-concepts/
 (function($) {
 	$.fn.joystick = function(val, arg1, arg2) {
+		
 		var getValue = function() {
 			var $joystick = $(this);
 			var $handle = $joystick.children('.handle');
@@ -24,6 +25,16 @@
 
 			$joystick.data('joystick-options').moveEvent.call($joystick[0], getValue.call(this));
 		};
+
+		var getSnap = function(){
+			var $joystick = $(this);
+			return $joystick.data('joystick-options').xAxis;
+		}
+		
+		var setSnap = function(state){
+			var $joystick = $(this);
+			$joystick.data('joystick-options').xAxis = state;
+		}
 
 		// Init
 		if (typeof val === 'object') {
@@ -102,6 +113,16 @@
 						setValue.call(this, arg1, arg2);
 					});
 				}
+				
+				case 'xsnap':
+					if (arg1 === undefined) {
+						return getSnap.call(this[0]);
+					}
+					else {
+						return this.each(function() {
+							setSnap.call(this, arg1);
+						});
+					}
 			}
 		}
 	};
