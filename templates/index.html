@@ -16,15 +16,15 @@
   <style type="text/css">
     .joystick {
       position: relative;
-      width: 200px;
-      height: 200px;
+      width: 150px;
+      height: 150px;
       background-color: #eee;
     }
 
     .joystick .handle {
       position: absolute;
-      width: 50px;
-      height: 50px;
+      width: 40px;
+      height: 40px;
       background-color: rgb(201, 44, 44);
       border: 1px solid rgb(107, 35, 35);
       border-radius: 15px;
@@ -84,9 +84,21 @@
           <div class="handle"></div>
         </div>
       </td>
-      <td></td>
+
+      <td>
+        <div class="joystick" id="shoulder_l">
+          <div class="handle"></div>
+        </div>
+      </td>
+
       <td><input type="button" value="Save Frame" class="cmd_button"><br></td>
-      <td></td>
+
+      <td>
+        <div class="joystick" id="shoulder_r">
+          <div class="handle"></div>
+        </div>
+      </td>
+
       <td>
         <div>Base</div>
         <div class="joystick" id="base_r">
