@@ -28,12 +28,15 @@ import os.path
 import uuid
 import json
 
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(18,GPIO.OUT)
-GPIO.setup(23,GPIO.OUT)
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setwarnings(False)
+    GPIO.setup(18,GPIO.OUT)
+    GPIO.setup(23,GPIO.OUT)
+except:
+    pass
 
 
 import maestro

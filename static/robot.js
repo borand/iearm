@@ -28,15 +28,7 @@ $(document).ready(function() {
             console.log(data);
         });
     })
-
-    $(".slider").change(function () {
-        var element_id = $(this).attr("id").substring(3, 5)
-        var elemtn_val = $(this).val();
-        console.log(element_id + "  val:" + elemtn_val);
-        $("#pwmval"+element_id).val(elemtn_val);
-        var data = {"id" : element_id, "body" : elemtn_val, "cmd" : "move"};
-        updater.socket.send(JSON.stringify(data));
-    });
+    
 
     $(".cmd_button").click(function () {
         var target_pwm_l = [];
