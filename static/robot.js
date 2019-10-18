@@ -12,6 +12,21 @@
 // License for the specific language governing permissions and limitations
 // under the License.
 
+var UI = {
+    updatePosition : function(obj){
+        console.log("UI.updatePosition(): " + obj)
+        for(let key in obj){
+            let pwm = obj[key];
+            // console.log(pwm)
+            for(let i=0; i<pwm.length; i++){
+                // console.log(key + i + "=" + pwm[i])
+                $("#"+(key + i)).val(pwm[i])
+            }
+        }
+    }
+
+}
+
 $(document).ready(function() {
     if (!window.console) window.console = {};
     if (!window.console.log) window.console.log = function() {};
@@ -139,22 +154,6 @@ $(document).ready(function() {
     
 });
 
-function newMessage(form) {
-    var message = form.formToDict();
-    updater.socket.send(JSON.stringify(message));
-    form.find("input[type=text]").val("").select();
-}
-
-jQuery.fn.formToDict = function() {
-    var fields = this.serializeArray();
-    var json = {}
-    for (var i = 0; i < fields.length; i++) {
-        json[fields[i].name] = fields[i].value;
-    }
-    if (json.next) delete json.next;
-    return json;
-};
-
 var updater = {
     socket: null,
 
@@ -162,17 +161,20 @@ var updater = {
         var url = "ws://" + location.host + "/ws";
         updater.socket = new WebSocket(url);
         updater.socket.onmessage = function(event) {
-            updater.showMessage(JSON.parse(event.data));
+            updater.showMessage(event.data);
         }
     },
 
-    showMessage: function(message) {
-        var existing = $("#m" + message.id);
-        if (existing.length > 0) return;
-        //var node = $(message.html);
-        //node.hide();
-        //$("#inbox").append(node);
-        $("#inbox").text("last msg: " + message.html);
-        //node.slideDown();
+    showMessage: function(event_data) {
+        console.log(event_data)
+        try{
+            let message = JSON.parse(event_data)
+            let obj = message;
+            let cmd = obj.cmd;
+            let param = obj.param;
+            UI[cmd](param);
+        } catch {
+            console.log('could not process incomming message: ' + event_data)
+        }
     }
 };

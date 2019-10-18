@@ -50,16 +50,6 @@ arm_r = maestro.Controller('/dev/ttyACM2',config_file="ArmL.json")
 pwm_vector = {"target_pwm_l": [], "target_pwm_r": []}
 
 
-class Arms():
-
-    def __init__(self):
-        self.arm_l = maestro.Controller('/dev/ttyACM0')
-        self.arm_r = maestro.Controller('/dev/ttyACM2')
-
-    def process_msg(self, msg):
-        pass
-
-
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [(r"/", MainHandler), 
@@ -125,6 +115,16 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         ChatSocketHandler.waiters.add(self)
+        
+        try:
+            msg['pwmvalL'].append(arm_l.get_all_positions())
+            msg['pwmvalR'].append(arm_r.get_all_positions())
+        except:
+            cmd = 'updatePosition';
+            param = {'pwmvalL': [1,2,3,4,5], 'pwmvalR': [1500,2000,1500,1500,2150]}
+            msg = {"cmd" : cmd, "param" : param}
+        print(msg)
+        ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
     def on_close(self):
         ChatSocketHandler.waiters.remove(self)
@@ -182,8 +182,6 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 fid.close()
                 pwm_vector['target_pwm_l'] = from_file['target_pwm_l']
                 pwm_vector['target_pwm_r'] = from_file['target_pwm_r']
-
-
 
         elif "cmd" in message:
             parsed = tornado.escape.json_decode(message)
