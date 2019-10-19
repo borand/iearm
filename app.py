@@ -49,6 +49,17 @@ arm_l = maestro.Controller('/dev/ttyACM0',config_file="ArmR.json")
 arm_r = maestro.Controller('/dev/ttyACM2',config_file="ArmL.json")
 pwm_vector = {"target_pwm_l": [], "target_pwm_r": []}
 
+def update_positions():
+    try:
+        msg['pwmvalL'].append(arm_l.get_all_positions())
+        msg['pwmvalR'].append(arm_r.get_all_positions())
+    except:
+        cmd = 'updatePosition';
+        param = {'pwmvalL': arm_l.get_all_positions(),
+                 'pwmvalR': arm_r.get_all_positions()}
+        msg = {"cmd": cmd, "param": param}
+    return msg
+
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -115,15 +126,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 
     def open(self):
         ChatSocketHandler.waiters.add(self)
-        
-        try:
-            msg['pwmvalL'].append(arm_l.get_all_positions())
-            msg['pwmvalR'].append(arm_r.get_all_positions())
-        except:
-            cmd = 'updatePosition';
-            param = {'pwmvalL': [1,2,3,4,5], 'pwmvalR': [1500,2000,1500,1500,2150]}
-            msg = {"cmd" : cmd, "param" : param}
-        print(msg)
+        msg = update_positions()
         ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
     def on_close(self):
@@ -205,6 +208,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             # ChatSocketHandler.update_cache(chat)
             #ChatSocketHandler.send_updates(chat)
             pass
+        msg = update_positions()
+        ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
 
 def main():
@@ -216,3 +221,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
