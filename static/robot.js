@@ -23,9 +23,27 @@ var UI = {
                 $("#"+(key + i)).val(pwm[i])
             }
         }
-    }
+    },
+};
 
-}
+var manualUpdate = function(){
+        var target_pwm_l = [];
+        var target_pwm_r = [];
+
+        $(".target_pwm").each(function () {
+            if ($(this).attr("id")[6] === "L"){
+                target_pwm_l.push(parseInt($(this).val()))
+            }
+            else if($(this).attr("id")[6] === "R"){
+                target_pwm_r.push(parseInt($(this).val()))
+            }
+
+        });
+        console.log("target_pwm_l = " + target_pwm_l + ",   target_pwm_r" + target_pwm_r);
+
+        var data = {"id" : "button", "body" : {"target_pwm_l": target_pwm_l,  "target_pwm_r" : target_pwm_r}, "cmd" : $(this).val()};
+        // updater.socket.send(JSON.stringify(data));
+    };
 
 $(document).ready(function() {
     if (!window.console) window.console = {};
@@ -46,8 +64,39 @@ $(document).ready(function() {
     
 
     $(".cmd_button").click(function () {
-        var target_pwm_l = [];
+        // var target_pwm_l = [];
+        // var target_pwm_r = [];
+        // $(".target_pwm").each(function () {
+        //     if ($(this).attr("id")[6] === "L"){
+        //         target_pwm_l.push(parseInt($(this).val()))
+        //     }
+        //     else if($(this).attr("id")[6] === "R"){
+        //         target_pwm_r.push(parseInt($(this).val()))
+        //     }
+        //
+        // });
+        // console.log("target_pwm_l = " + target_pwm_l + ",   target_pwm_r" + target_pwm_r);
+        //var data = {"id" : "button", "body" : {"target_pwm_l": target_pwm_l,  "target_pwm_r" : target_pwm_r}, "cmd" : $(this).val()};
+        var data = {"id" : "button", "cmd" : $(this).val()};
+        if (data['cmd'] === "Save as"){
+            data['param'] = $("#save_filename").val()
+            let option_text = data['param']+".seq";
+            var o = new Option( option_text, option_text);
+            /// jquerify the DOM object 'o' so we can use the html method
+            $(o).html(option_text );
+            $("#load_file").append(o);
+        }
+        if ((data['cmd'] === "Load file") || (data['cmd'] === "Delete Sequence")){
+            data['param'] = $("#load_file").val()
+        }
+        if (data['cmd'] === "Update"){
+              var target_pwm_l = [];
         var target_pwm_r = [];
+
+        $(".target_pwm").bind('keyup mouseup', function () {
+              var target_pwm_l = [];
+        var target_pwm_r = [];
+
         $(".target_pwm").each(function () {
             if ($(this).attr("id")[6] === "L"){
                 target_pwm_l.push(parseInt($(this).val()))
@@ -61,7 +110,24 @@ $(document).ready(function() {
 
         var data = {"id" : "button", "body" : {"target_pwm_l": target_pwm_l,  "target_pwm_r" : target_pwm_r}, "cmd" : $(this).val()};
         updater.socket.send(JSON.stringify(data));
+        });
 
+        $(".target_pwm").each(function () {
+            if ($(this).attr("id")[6] === "L"){
+                target_pwm_l.push(parseInt($(this).val()))
+            }
+            else if($(this).attr("id")[6] === "R"){
+                target_pwm_r.push(parseInt($(this).val()))
+            }
+
+        });
+        console.log("target_pwm_l = " + target_pwm_l + ",   target_pwm_r" + target_pwm_r);
+
+        var data = {"id" : "button", "body" : {"target_pwm_l": target_pwm_l,  "target_pwm_r" : target_pwm_r}, "cmd" : $(this).val()};
+        updater.socket.send(JSON.stringify(data));
+        }
+        console.log(data)
+        updater.socket.send(JSON.stringify(data));
 
     });
 

@@ -9,7 +9,7 @@ import copy
 PY2 = version_info[0] == 2  # Running Python 2.x?
 
 logger = logging.getLogger('maestro')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 # create console handler with a higher log level
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)

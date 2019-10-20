@@ -16,8 +16,8 @@
   <style type="text/css">
     .joystick {
       position: relative;
-      width: 150px;
-      height: 150px;
+      width: 200px;
+      height: 200px;
       background-color: #eee;
     }
 
@@ -44,13 +44,13 @@
       <tr bgcolor="#9F9F9F">
           <td colspan="2" align="center">
               {% for sID in [0,1,2,3,4] %} 
-              <input type="text" class="target_pwm" id="pwmvalL{{sID}}" value="1500" pattern="\d+">
+              <input type="number" class="target_pwm" id="pwmvalL{{sID}}" value="1500" step="10" pattern="\d+">
               {% end %}
           </td>
-          <td></td>
+        <td align="center"><input type="button" value="Update" class="cmd_button"><br></td>
           <td colspan="2" align="center">
               {% for sID in [0,1,2,3,4] %} 
-            <input type="text" class="target_pwm" id="pwmvalR{{sID}}" value="1500" pattern="\d+">
+            <input type="number" class="target_pwm" id="pwmvalR{{sID}}" value="1500" step="10" pattern="\d+">
           {% end %}
           </td>
       </tr>
@@ -58,7 +58,7 @@
       <td colspan="2" align="center">
         LEFT
       </td>
-      <td  align="center"><input type="button" value="Play Sequence" class="cmd_button"><br></td>
+      <td  align="center"><input type="button" value="Play" class="cmd_button"><br></td>
       <td  colspan="2" align="center">
           RIGHT
       </td>
@@ -107,7 +107,7 @@
         </div>
       </td>
 
-      <td  align="center"><input type="button" value="Save Frame" class="cmd_button"><br></td>
+      <td  align="center"><input type="button" value="Save" class="cmd_button"><br></td>
 
       <td align="center">
         <div>Shoulder</div>
@@ -130,17 +130,22 @@
     <br>
 
     <hr>
-  <input type="button" value="Save to file" class="cmd_button"><input type="text" class="target_pwm" id="filename"
-    value="new_sequence"><br>
-  <input type="button" value="Load to file" class="cmd_button"><br>
-  <p></p>
-  <p></p>
-  <input type="button" value="Reset Sequence" class="cmd_button"><br>
-
+  <input type="button" value="Save as" class="cmd_button">        <input type="text" id="save_filename" value="new_sequence"><br>
   <hr>
+  <input type="button" value="Load file" class="cmd_button">
+  <select name="sequency_file_list" id="load_file">
+      {% for file in seq_files %}
+          <option value="{{ file }}">{{ file }}</option>
+      {% end %}
+  </select>
+  <br>
+  <hr>
+  <input type="button" value="Reset Sequence" class="cmd_button"><br>
+  <hr>
+  <br>
+  <br>
+  <input type="button" value="Delete Sequence" class="cmd_button"><br>
   
 </div>
 </body>
-
-
 </html>

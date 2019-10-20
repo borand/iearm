@@ -25,6 +25,8 @@ import tornado.options
 import tornado.web
 import tornado.websocket
 import os.path
+import os
+import glob
 import uuid
 import json
 
@@ -35,9 +37,13 @@ try:
     GPIO.setwarnings(False)
     GPIO.setup(18,GPIO.OUT)
     GPIO.setup(23,GPIO.OUT)
+    GPIO.setup(24, GPIO.OUT)
 except:
     pass
 
+GPIO.output(18, GPIO.HIGH)
+GPIO.output(23, GPIO.HIGH)
+GPIO.output(24, GPIO.HIGH)
 
 import maestro
 
@@ -55,8 +61,10 @@ def update_positions():
         msg['pwmvalR'].append(arm_r.get_all_positions())
     except:
         cmd = 'updatePosition';
-        param = {'pwmvalL': arm_l.get_all_positions(),
-                 'pwmvalR': arm_r.get_all_positions()}
+        # param = {'pwmvalL': arm_l.get_all_positions(),
+        #          'pwmvalR': arm_r.get_all_positions()}
+        param = {'pwmvalL': arm_l.config['target_position'],
+                 'pwmvalR': arm_r.config['target_position']}
         msg = {"cmd": cmd, "param": param}
     return msg
 
@@ -79,7 +87,8 @@ class Application(tornado.web.Application):
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        self.render("index.html", messages=ChatSocketHandler.cache)
+        seq_files = glob.glob("*.seq")
+        self.render("index.html", seq_files=seq_files)
 
 class ApiHandler(tornado.web.RequestHandler):
 
@@ -92,6 +101,7 @@ class ApiHandler(tornado.web.RequestHandler):
                 for (chan, val) in enumerate(cmd_args):
                     print("chan:{}, val:{}".format(chan, val))
                     arm_l.set_speed(chan, val)
+                    arm_r.set_speed(chan, val)
                 ret_msg = 'done'
         except:
             ret_msg = 'error'
@@ -152,37 +162,64 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 
         if "button" in message:
             parsed = tornado.escape.json_decode(message)
-            if "Save Frame" in parsed['cmd']:
+            if "Save" in parsed['cmd']:
                 pwm_vector['target_pwm_l'].append(arm_l.get_all_positions())
                 pwm_vector['target_pwm_r'].append(arm_r.get_all_positions())
+                msg = update_positions()
+                ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
                 print(pwm_vector)
 
-            if "Play Sequence" in parsed['cmd']:
+            if "Update" in parsed['cmd']:
+                print()
+                l = parsed['body']['target_pwm_l']
+                l.append(arm_l.config['last_position'][5])
+                arm_l.set_target_vector(l)
+
+                r = parsed['body']['target_pwm_r']
+                r.append(arm_r.config['last_position'][5])
+                arm_r.set_target_vector(r)
+
+
+            if "Play" in parsed['cmd']:
                 #arm_l.run_sequency(pwm_vector['target_pwm_l'])
                 #arm_r.run_sequency(pwm_vector['target_pwm_r'])
+                print(pwm_vector)
                 for (l,r) in zip(pwm_vector['target_pwm_l'], pwm_vector['target_pwm_r']):
                     arm_l.set_target_vector(l, match_speed=1, wait=False)
                     arm_r.set_target_vector(r, match_speed=1, wait=True)
                     arm_l.set_speed_vector(arm_l.config['last_speed'])
+                    msg = update_positions()
+                    ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
             if "Reset Sequence" in parsed['cmd']:
                 pwm_vector['target_pwm_l'] = []
                 pwm_vector['target_pwm_r'] = []
 
-            if "Save to file" in parsed['cmd']:
-                filename = 'armlogic_sequency.json'
+            if "Save as" in parsed['cmd']:
+                filename = parsed['param']
+                filename, file_extension = os.path.splitext(filename)
+                if ".seq" not in file_extension:
+                    filename = filename + ".seq"
+
                 fid = open(filename, 'w')
                 fid.write(json.dumps(pwm_vector))
+
+            if "Delete Sequence" in parsed['cmd']:
+                filename = parsed['param']
+                os.remove(filename)
 
             if "Home" in parsed['cmd']:
                 arm_l.go_home()
                 arm_r.go_home()
+                msg = update_positions()
+                ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
-            if "Load to file" in parsed['cmd']:
-                filename = 'armlogic_sequency.json'
+            if "Load file" in parsed['cmd']:
+                filename = parsed['param']
                 fid = open(filename, 'r')
                 from_file = json.loads(fid.read())
                 fid.close()
+                logging.info("loaded file {}".format(filename))
                 pwm_vector['target_pwm_l'] = from_file['target_pwm_l']
                 pwm_vector['target_pwm_r'] = from_file['target_pwm_r']
 
@@ -197,6 +234,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             if "R" in parsed['id'][0]:
                 logging.info("moving right arm {}".format(int(parsed["body"])))
                 arm_r.set_target(chan, pwm)
+            msg = update_positions()
+            ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
         else:
             # parsed = tornado.escape.json_decode(message)
@@ -208,8 +247,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             # ChatSocketHandler.update_cache(chat)
             #ChatSocketHandler.send_updates(chat)
             pass
-        msg = update_positions()
-        ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
+
 
 
 def main():
