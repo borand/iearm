@@ -90,6 +90,17 @@ $(document).ready(function() {
             console.log('yaw:' + pos.x) },
 		endEvent: function(pos) { console.log('yaw:' + pos.x) }
     });
+
+    $('#shoulder_l').joystick({
+		xAxis: false,
+		ySnap: false,
+		moveEvent: function(pos) {
+            var data = {"id" : 'L0', "body" : 500 + Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            console.log('yaw:' + pos.x) },
+		endEvent: function(pos) { console.log('yaw:' + pos.x) }
+    });
+
     //========================================================================================
     $('#arm_forearm_r').joystick({
 		//xAxis: false,
@@ -113,6 +124,16 @@ $(document).ready(function() {
         },
 		endEvent: function(pos) { console.log(pos) }
     });
+	    $('#shoulder_r').joystick({
+		xAxis: false,
+		ySnap: false,
+		moveEvent: function(pos) {
+            var data = {"id" : 'R0', "body" : 2455 - Math.round(2000*pos.y), "cmd" : "move"};
+            updater.socket.send(JSON.stringify(data));
+            console.log('yaw:' + pos.x) },
+		endEvent: function(pos) { console.log('yaw:' + pos.x) }
+    });
+
     $('#base_r').joystick({
 		xAxis: false,
 		ySnap: true,
