@@ -233,7 +233,7 @@ $(document).ready(function () {
         moveEvent: function (pos) {
             var data = {"id": 'R4', "body": 500 + Math.round(2000 * (1 - pos.x)), "cmd": "move"};
             updater.socket.send(JSON.stringify(data));
-            var data = {"id": 'R3', "body": 1500 + Math.round(2000 * (1 - pos.y)), "cmd": "move"};
+            var data = {"id": 'R3', "body": 500 + Math.round(2000 * (1 - pos.y)), "cmd": "move"};
             updater.socket.send(JSON.stringify(data));
             console.log('yaw:' + pos);
         },
