@@ -169,6 +169,12 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
                 print(pwm_vector)
 
+            if "led" in parsed['cmd']:
+                GPIO.output(18, not GPIO.input(18))
+                GPIO.output(23, GPIO.LOW)
+                GPIO.output(24, GPIO.LOW)
+
+
             if "Update" in parsed['cmd']:
                 print()
                 l = parsed['body']['target_pwm_l']
@@ -185,7 +191,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 #arm_r.run_sequency(pwm_vector['target_pwm_r'])
                 print(pwm_vector)
                 for (l,r) in zip(pwm_vector['target_pwm_l'], pwm_vector['target_pwm_r']):
-                    arm_l.set_target_vector(l, match_speed=1, wait=False)
+                    arm_l.set_target_vector(l, match_speed=1, wait=True)
                     arm_r.set_target_vector(r, match_speed=1, wait=True)
                     arm_l.set_speed_vector(arm_l.config['last_speed'])
                     msg = update_positions()
@@ -222,6 +228,12 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 logging.info("loaded file {}".format(filename))
                 pwm_vector['target_pwm_l'] = from_file['target_pwm_l']
                 pwm_vector['target_pwm_r'] = from_file['target_pwm_r']
+
+            if "Set Home" in parsed['cmd']:
+                arm_l.config['home'] = arm_l.get_all_positions()
+                arm_r.config['home'] = arm_r.get_all_positions()
+                print(arm_l.config['home'])
+                print(arm_r.config['home'])
 
         elif "cmd" in message:
             parsed = tornado.escape.json_decode(message)
