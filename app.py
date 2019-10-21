@@ -191,7 +191,7 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                 #arm_r.run_sequency(pwm_vector['target_pwm_r'])
                 print(pwm_vector)
                 for (l,r) in zip(pwm_vector['target_pwm_l'], pwm_vector['target_pwm_r']):
-                    arm_l.set_target_vector(l, match_speed=1, wait=True)
+                    arm_l.set_target_vector(l, match_speed=1, wait=False)
                     arm_r.set_target_vector(r, match_speed=1, wait=True)
                     arm_l.set_speed_vector(arm_l.config['last_speed'])
                     msg = update_positions()
