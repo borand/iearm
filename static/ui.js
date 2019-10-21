@@ -25,16 +25,6 @@ function newMessage(form) {
     updater.socket.send(JSON.stringify(json));
 }
 
-jQuery.fn.formToDict = function() {
-    var fields = this.serializeArray();
-    var json = {}
-    for (var i = 0; i < fields.length; i++) {
-        json[fields[i].name] = fields[i].value;
-    }
-    if (json.next) delete json.next;
-    return json;
-};
-
 var updater = {
     socket: null,
 
