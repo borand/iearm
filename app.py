@@ -194,8 +194,9 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
                     arm_l.set_target_vector(l, match_speed=1, wait=False)
                     arm_r.set_target_vector(r, match_speed=1, wait=True)
                     arm_l.set_speed_vector(arm_l.config['last_speed'])
-                    msg = update_positions()
-                    ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
+                    arm_r.set_speed_vector(arm_r.config['last_speed'])
+                msg = update_positions()
+                ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
             if "Reset Sequence" in parsed['cmd']:
                 pwm_vector['target_pwm_l'] = []

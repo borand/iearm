@@ -176,7 +176,7 @@ $(document).ready(function () {
         }
     });
     $('#wrist_forearm_l').joystick({
-        //yAxis: false,
+        yAxis: false,
         //xSnap: true,        
         moveEvent: function (pos) {
             var data = {"id": 'L4', "body": 500 + Math.round(2000 * (pos.x)), "cmd": "move"};
@@ -228,7 +228,7 @@ $(document).ready(function () {
         }
     });
     $('#wrist_forearm_r').joystick({
-        //yAxis: false,
+        yAxis: false,
         //xSnap: true,        
         moveEvent: function (pos) {
             var data = {"id": 'R4', "body": 500 + Math.round(2000 * (1 - pos.x)), "cmd": "move"};
