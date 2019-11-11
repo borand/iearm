@@ -51,21 +51,23 @@ from tornado.options import define, options
 
 define("port", default=8000, help="run on the given port", type=int)
 
-arm_l = maestro.Controller('/dev/ttyACM0',config_file="ArmR.json")
-arm_r = maestro.Controller('/dev/ttyACM2',config_file="ArmL.json")
+arm_l = maestro.Controller('/dev/ttyACM2',config_file="ArmR.json")
+arm_r = maestro.Controller('/dev/ttyACM0',config_file="ArmL.json")
 pwm_vector = {"target_pwm_l": [], "target_pwm_r": []}
 
 def update_positions():
+    cmd = 'updatePosition'
     try:
-        msg['pwmvalL'].append(arm_l.get_all_positions())
-        msg['pwmvalR'].append(arm_r.get_all_positions())
+        param = {'pwmvalL': arm_l.get_all_positions(),
+                 'pwmvalR': arm_r.get_all_positions()}
+        msg = {"cmd": cmd, "param": param}
+        logging.info("update_positions, msg = {}".format(msg))
     except:
-        cmd = 'updatePosition';
         # param = {'pwmvalL': arm_l.get_all_positions(),
         #          'pwmvalR': arm_r.get_all_positions()}
-        param = {'pwmvalL': arm_l.config['target_position'],
-                 'pwmvalR': arm_r.config['target_position']}
+
         msg = {"cmd": cmd, "param": param}
+        logging.info("ERROR in: update_positions")
     return msg
 
 
@@ -176,7 +178,6 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
 
 
             if "Update" in parsed['cmd']:
-                print()
                 l = parsed['body']['target_pwm_l']
                 l.append(arm_l.config['last_position'][5])
                 arm_l.set_target_vector(l)
@@ -189,12 +190,22 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             if "Play" in parsed['cmd']:
                 #arm_l.run_sequency(pwm_vector['target_pwm_l'])
                 #arm_r.run_sequency(pwm_vector['target_pwm_r'])
-                print(pwm_vector)
+                logging.debug(pwm_vector)
                 for (l,r) in zip(pwm_vector['target_pwm_l'], pwm_vector['target_pwm_r']):
-                    arm_l.set_target_vector(l, match_speed=1, wait=False)
-                    arm_r.set_target_vector(r, match_speed=1, wait=True)
-                    arm_l.set_speed_vector(arm_l.config['last_speed'])
-                    arm_r.set_speed_vector(arm_r.config['last_speed'])
+                    move_time_l = sum(arm_l.get_pwm_delta(l))
+                    move_time_r = sum(arm_r.get_pwm_delta(r))
+                    if move_time_l == 0:
+                        logging.debug("move_r only")
+                        arm_r.set_target_vector(r, match_speed=1, wait=True)
+                    if move_time_r == 0:
+                        logging.debug("move_l only")
+                        arm_l.set_target_vector(l, match_speed=1, wait=True)
+                    else:
+                        logging.debug("move both only")
+                        arm_l.set_target_vector(l, match_speed=1, wait=False)
+                        arm_r.set_target_vector(r, match_speed=1, wait=True)
+                        arm_l.set_speed_vector(arm_l.config['last_speed'])
+                        arm_r.set_speed_vector(arm_r.config['last_speed'])
                 msg = update_positions()
                 ChatSocketHandler.send_updates(tornado.escape.json_encode(msg))
 
